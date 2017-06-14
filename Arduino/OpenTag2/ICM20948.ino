@@ -2,28 +2,28 @@ int imuAddress = 0x68;
 int compassAddress = 0x0C;
 
 // USER BANK 0 REGISTER MAP
-#define IMU_WHO_AM_I (0x00)
-#define IMU_USER_CTRL (0x03)
-#define IMU_LP_CONFIG (0x05)
-#define IMU_PWR_MGMT_1 (0x06)
-#define IMU_PWR_MGMT_2 (0x07)
-#define IMU_INT_PIN_CFG (0x0F)
-#define IMU_INT_ENABLE_1 (0x10)
-#define IMU_INT_ENABLE_2 (0x12)
-#define IMU_INT_ENABLE_3 (0x13)
-#define IMU_I2C_MST_STATUS (0x17)
-#define IMU_INT_STATUS (0x19)
-#define IMU_INT_STATUS_1 (0x1A)
-#define IMU_INT_STATUS_2 (0x1B)
-#define IMU_INT_STATUS_3 (0x1C)
-#define IMU_DELAY_TIMEH (0x28)
-#define IMU_DELAY_TIMEL (0x29)
-#define IMU_ACCEL_XOUT_H (0x2D)
-#define IMU_ACCEL_XOUT_L (0x2E)
-#define IMU_ACCEL_YOUT_H (0x2F)
-#define IMU_ACCEL_YOUT_L (0x30)
-#define IMU_ACCEL_ZOUT_H (0x31)
-#define IMU_ACCEL_ZOUT_L (0x32)
+#define IMU_WHO_AM_I        (0x00)
+#define IMU_USER_CTRL       (0x03)
+#define IMU_LP_CONFIG       (0x05)
+#define IMU_PWR_MGMT_1      (0x06)
+#define IMU_PWR_MGMT_2      (0x07)
+#define IMU_INT_PIN_CFG     (0x0F)
+#define IMU_INT_ENABLE_1    (0x10)
+#define IMU_INT_ENABLE_2    (0x12)
+#define IMU_INT_ENABLE_3    (0x13)
+#define IMU_I2C_MST_STATUS  (0x17)
+#define IMU_INT_STATUS      (0x19)
+#define IMU_INT_STATUS_1    (0x1A)
+#define IMU_INT_STATUS_2    (0x1B)
+#define IMU_INT_STATUS_3    (0x1C)
+#define IMU_DELAY_TIMEH     (0x28)
+#define IMU_DELAY_TIMEL     (0x29)
+#define IMU_ACCEL_XOUT_H    (0x2D)
+#define IMU_ACCEL_XOUT_L    (0x2E)
+#define IMU_ACCEL_YOUT_H    (0x2F)
+#define IMU_ACCEL_YOUT_L    (0x30)
+#define IMU_ACCEL_ZOUT_H    (0x31)
+#define IMU_ACCEL_ZOUT_L    (0x32)
 
 #define IMU_GYRO_XOUT_H (0x33)
 #define IMU_GYRO_XOUT_L (0x34)
@@ -60,44 +60,47 @@ int compassAddress = 0x0C;
 #define IMU_EXT_SLV_DATA_22 (0x51)
 #define IMU_EXT_SLV_DATA_23 (0x52)
 
-#define IMU_FIFO_EN_1 (0x66)
-#define IMU_FIFO_EN_2 (0x67)
-#define IMU_FIFO_RST (0x68)
-#define IMU_FIFO_MODE (0x69)
-#define IMU_FIFO_COUNTH (0x70)
-#define IMU_FIFO_COUNTL (0x71)
-#define IMU_FIFO_R_W (0x72)
+#define IMU_FIFO_EN_1       (0x66)
+#define IMU_FIFO_EN_2       (0x67)
+#define IMU_FIFO_RST        (0x68)
+#define IMU_FIFO_MODE       (0x69)
+#define IMU_FIFO_COUNTH     (0x70)
+#define IMU_FIFO_COUNTL     (0x71)
+#define IMU_FIFO_R_W        (0x72)
 #define IMU_DATA_RDY_STATUS (0x74)
-#define IMU_FIFO_CFG (0x76)
-#define IMU_REG_BANK_SEL (0x7F)
+#define IMU_FIFO_CFG        (0x76)
+#define IMU_REG_BANK_SEL    (0x7F)
 
+// Magnetometer
+#define AKM_REG_WHOAMI      (0x01)
+#define AKM_REG_ST1         (0x10)
+#define AKM_REG_HXL         (0x11)
+#define AKM_REG_ST2         (0x18)
+#define AKM_REG_CNTL2       (0x31)
+#define AKM_REG_CNTL3       (0x32)
 
-#define AKM_REG_WHOAMI      (0x00)
-
-#define AKM_REG_ST1         (0x02)
-#define AKM_REG_HXL         (0x03)
-#define AKM_REG_ST2         (0x09)
-
-#define AKM_REG_CNTL        (0x0A)
-#define AKM_REG_ASTC        (0x0C)
-#define AKM_REG_ASAX        (0x10)
-#define AKM_REG_ASAY        (0x11)
-#define AKM_REG_ASAZ        (0x12)
-
+// ST1: Status 1 Read Only
 #define AKM_DATA_READY      (0x01)
 #define AKM_DATA_OVERRUN    (0x02)
-#define AKM_OVERFLOW        (0x80)
-#define AKM_DATA_ERROR      (0x40)
 
-#define AKM_BIT_SELF_TEST   (0x40)
+// ST2: Status 2 Read Only
+#define AKM_OVERFLOW        (0x08)
 
-#define SUPPORTS_AK89xx_HIGH_SENS   (0x10)
-#define AKM_POWER_DOWN          (0x00 | SUPPORTS_AK89xx_HIGH_SENS)
-#define AKM_SINGLE_MEASUREMENT  (0x01 | SUPPORTS_AK89xx_HIGH_SENS)
-#define AKM_FUSE_ROM_ACCESS     (0x0F | SUPPORTS_AK89xx_HIGH_SENS)
-#define AKM_MODE_SELF_TEST      (0x08 | SUPPORTS_AK89xx_HIGH_SENS)
+// CNTL2: Control2 Read/Write
+#define AKM_POWER_DOWN                    (0x00)
+#define AKM_SINGLE_MEASUREMENT            (0x01)
+#define AKM_CONTINUOUS_MEASUREMENT_MODE1  (0x02)
+#define AKM_CONTINUOUS_MEASUREMENT_MODE2  (0x04)
+#define AKM_CONTINUOUS_MEASUREMENT_MODE3  (0x06)
+#define AKM_CONTINUOUS_MEASUREMENT_MODE4  (0x08)
+#define AKM_MODE_SELF_TEST                (0x10)
 
-#define AKM_WHOAMI      (0x48)
+// CNTL3: Control 3 Read/Write
+#define AKM_SOFT_RESET (0x01)
+
+
+
+#define AKM_WHOAMI      (0x09)
 
 #define BIT_I2C_READ        (0x80)
 #define BIT_SLAVE_BYTE_SW   (0x40)
@@ -149,7 +152,8 @@ int mpuInit(boolean mode)
      I2Cwrite(imuAddress, INT_ENABLE, 0x01);
 
     // setup compass
-    setup_compass();
+    SerialUSB.print("Compass ");
+    SerialUSB.println(setup_compass());
 
     // using FIFO mode to automatically move magnetometer readings
     I2Cwrite(imuAddress, 0x66, 0x07); // reset FIFO
