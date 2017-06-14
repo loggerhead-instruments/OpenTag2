@@ -26,11 +26,37 @@
 #include <SdFat.h>
 #include <RTCZero.h>
 
+// DEFAULT SETTINGS
+int printDiags = 1;
+#define MS5803_30bar // Pressure sensor. Each sensor has different constants.
+
+
+//
+
+#ifdef MS5837_30bar
+  #define MS58xx_constant 8192.0
+  #define pressAddress 0x76
+#endif
+#ifdef MS5803_01bar
+  #define MS58xx_constant 32768.0
+  #define pressAddress 0x77
+#endif
+#ifdef MS5803_05bar
+  #define MS58xx_constant 32768.0
+  #define pressAddress 0x77
+#endif
+#ifdef MS5803_30bar
+  #define MS58xx_constant 8192.0
+  #define pressAddress 0x77
+#endif
+
+
 // pin assignments
 #define LED1 20 // PB23
 #define LED2 21 // PA27
 #define LED3 22 // PB22
 #define chipSelect 10
+
 
 // SD file system
 SdFat sd;
@@ -46,11 +72,28 @@ volatile byte day = 1;
 volatile byte month = 1;
 volatile byte year = 17;
 
+//Pressure and temp calibration coefficients
+uint16_t PSENS; //pressure sensitivity
+uint16_t POFF;  //Pressure offset
+uint16_t TCSENS; //Temp coefficient of pressure sensitivity
+uint16_t TCOFF; //Temp coefficient of pressure offset
+uint16_t TREF;  //Ref temperature
+uint16_t TEMPSENS; //Temperature sensitivity coefficient
+byte Tbuff[3];
+byte Pbuff[3];
+volatile float depth, temperature, pressure_mbar;
+
+// RGB
+int16_t islRed;
+int16_t islBlue;
+int16_t islGreen;
 
 void setup() {
   SerialUSB.begin(115200);
   delay(2000);
   SerialUSB.println("Loggerhead OpenTag2");
+  delay(8000);
+  
 
   Wire.begin();
   Wire.setClock(400);  // set I2C clock to 400 kHz
@@ -67,12 +110,9 @@ void setup() {
   }
 
   initSensors();
+  initSensors();
+  initSensors();
   fileInit();
-
-  for(int i=0; i<10; i++){
-    writeSensors();
-    delay(1000);
-  }
 
   dataFile.close();
   SerialUSB.println("Done");
@@ -82,24 +122,37 @@ void loop() {
 
 
 
-//  for(int i=0; i<10; i++){
-//    digitalWrite(LED2, HIGH);
-//    delay(100);
-//    digitalWrite(LED2, LOW);
-//    delay(100);
-//  }
-//    for(int i=0; i<10; i++){
-//    digitalWrite(LED3, HIGH);
-//    delay(100);
-//    digitalWrite(LED3, LOW);
-//    delay(100);
-//  }
 }
 
 void initSensors(){
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
   pinMode(LED3, OUTPUT);
+
+    // RGB
+  
+  SerialUSB.print("RGBinit: ");
+  SerialUSB.println(islInit()); 
+  for(int n=0; n<4; n++){
+      islRead();
+      SerialUSB.print("R:"); SerialUSB.print(islRed); SerialUSB.print("\t");
+      SerialUSB.print("G:"); SerialUSB.print(islGreen); SerialUSB.print("\t");
+      SerialUSB.print("B:"); SerialUSB.println(islBlue);
+      delay(200);
+  }
+
+  pressInit();
+  updatePress();
+  delay(20);
+  readPress();
+  updateTemp();
+  delay(20);
+  readTemp();
+  calcPressTemp();
+  SerialUSB.print(" press:"); SerialUSB.print(pressure_mbar);
+  SerialUSB.print(" depth:"); SerialUSB.print(depth);
+  SerialUSB.print(" temp:"); SerialUSB.println(temperature);
+  
 }
 
 void fileInit()
