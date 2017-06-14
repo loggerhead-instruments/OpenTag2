@@ -88,6 +88,29 @@ int16_t islRed;
 int16_t islBlue;
 int16_t islGreen;
 
+// IMU
+// IMU
+int FIFOpts;
+#define IMUBUFFERSIZE 1800 
+volatile byte imuBuffer[IMUBUFFERSIZE]; // buffer used to store IMU sensor data before writes in bytes
+volatile byte time2writeIMU=0; 
+volatile int IMUCounter = 0;
+volatile int bufferposIMU = 0;
+int halfbufIMU = IMUBUFFERSIZE/2;
+volatile boolean firstwrittenIMU;
+volatile uint8_t imuTempBuffer[20];
+int16_t accel_x;
+int16_t accel_y;
+int16_t accel_z;
+int16_t magnetom_x;
+int16_t magnetom_y;
+int16_t magnetom_z;
+int16_t gyro_x;
+int16_t gyro_y;
+int16_t gyro_z;
+float gyro_temp;
+int accel_scale = 0;
+
 void setup() {
   SerialUSB.begin(115200);
   delay(2000);
@@ -129,8 +152,7 @@ void initSensors(){
   pinMode(LED2, OUTPUT);
   pinMode(LED3, OUTPUT);
 
-    // RGB
-  
+  // RGB
   SerialUSB.print("RGBinit: ");
   SerialUSB.println(islInit()); 
   for(int n=0; n<4; n++){
@@ -141,6 +163,7 @@ void initSensors(){
       delay(200);
   }
 
+  // Pressure/Temperature
   pressInit();
   updatePress();
   delay(20);
@@ -152,7 +175,38 @@ void initSensors(){
   SerialUSB.print(" press:"); SerialUSB.print(pressure_mbar);
   SerialUSB.print(" depth:"); SerialUSB.print(depth);
   SerialUSB.print(" temp:"); SerialUSB.println(temperature);
+
+  // IMU
+  SerialUSB.println(mpuInit(1));
+    for(int i=0; i<10; i++){
+      readImu();
+      accel_x = (int16_t) ((int16_t)imuTempBuffer[0] << 8 | imuTempBuffer[1]);    
+      accel_y = (int16_t) ((int16_t)imuTempBuffer[2] << 8 | imuTempBuffer[3]);   
+      accel_z = (int16_t) ((int16_t)imuTempBuffer[4] << 8 | imuTempBuffer[5]);    
+      
+      gyro_temp = (int16_t) (((int16_t)imuTempBuffer[6]) << 8 | imuTempBuffer[7]);   
+     
+      gyro_x = (int16_t)  (((int16_t)imuTempBuffer[8] << 8) | imuTempBuffer[9]);   
+      gyro_y = (int16_t)  (((int16_t)imuTempBuffer[10] << 8) | imuTempBuffer[11]); 
+      gyro_z = (int16_t)  (((int16_t)imuTempBuffer[12] << 8) | imuTempBuffer[13]);   
+      
+      magnetom_x = (int16_t)  (((int16_t)imuTempBuffer[14] << 8) | imuTempBuffer[15]);   
+      magnetom_y = (int16_t)  (((int16_t)imuTempBuffer[16] << 8) | imuTempBuffer[17]);   
+      magnetom_z = (int16_t)  (((int16_t)imuTempBuffer[18] << 8) | imuTempBuffer[19]);  
   
+      SerialUSB.print("a/g/m/t: \t");
+      SerialUSB.print( accel_x); SerialUSB.print("\t");
+      SerialUSB.print( accel_y); SerialUSB.print("\t");
+      SerialUSB.print( accel_z); SerialUSB.print("\t");
+      SerialUSB.print(gyro_x); SerialUSB.print("\t");
+      SerialUSB.print(gyro_y); SerialUSB.print("\t");
+      SerialUSB.print(gyro_z); SerialUSB.print("\t");
+      SerialUSB.print(magnetom_x); SerialUSB.print("\t");
+      SerialUSB.print(magnetom_y); SerialUSB.print("\t");
+      SerialUSB.print(magnetom_z); SerialUSB.print("\t");
+      SerialUSB.println(gyro_temp);
+      delay(200);
+    }
 }
 
 void fileInit()
