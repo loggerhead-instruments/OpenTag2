@@ -1,6 +1,12 @@
 int imuAddress = 0x68;
 int compassAddress = 0x0C;
 
+// Need to select User Bank before writing to register in that bank
+#define USR_BNK_0 (0x00)
+#define USR_BNK_1 (0x10)
+#define USR_BNK_2 (0x20)
+#define USR_BNK_3 (0x30)
+
 // USER BANK 0 REGISTER MAP
 #define IMU_WHO_AM_I        (0x00)
 #define IMU_USER_CTRL       (0x03)
@@ -8,7 +14,8 @@ int compassAddress = 0x0C;
 #define IMU_PWR_MGMT_1      (0x06)
 #define IMU_PWR_MGMT_2      (0x07)
 #define IMU_INT_PIN_CFG     (0x0F)
-#define IMU_INT_ENABLE_1    (0x10)
+#define IMU_INT_ENABLE      (0x10)
+#define IMU_INT_ENABLE_1    (0x11)
 #define IMU_INT_ENABLE_2    (0x12)
 #define IMU_INT_ENABLE_3    (0x13)
 #define IMU_I2C_MST_STATUS  (0x17)
@@ -71,13 +78,75 @@ int compassAddress = 0x0C;
 #define IMU_FIFO_CFG        (0x76)
 #define IMU_REG_BANK_SEL    (0x7F)
 
+// User Bank 1
+#define IMU_SELF_TEST_X_GYRO  (0x02)
+#define IMU_SELF_TEST_Y_GYRO  (0x03)
+#define IMU_SELF_TEST_Z_GYRO  (0x04)
+#define IMU_SELF_TEST_X_ACCEL (0x0E)
+#define IMU_SELF_TEST_Y_ACCEL (0x0F)
+#define IMU_SELF_TEST_Z_ACCEL (0x10)
+#define IMU_XA_OFFS_H         (0x14)  
+#define IMU_XA_OFFS_L         (0x15)
+#define IMU_YA_OFFS_H         (0x17)  
+#define IMU_YA_OFFS_L         (0x18)
+#define IMU_ZA_OFFS_H         (0x1A)  
+#define IMU_ZA_OFFS_L         (0x1B)
+#define IMU_TIMEBASE_CORRECTION_PLL (0x28)
+
+// User Bank 2
+#define IMU_GYRO_SMPLRT_DIV     (0x00)
+#define IMU_GYRO_CONFIG_1       (0x01)
+#define IMU_GYRO_CONFIG_2       (0x02)
+#define IMU_XG_OFFS_USRH        (0x03)
+#define IMU_XG_OFFS_USRL        (0x04)
+#define IMU_YG_OFFS_USRH        (0x05)
+#define IMU_YG_OFFS_USRL        (0x06)
+#define IMU_ZG_OFFS_USRH        (0x07)
+#define IMU_ZG_OFFS_USRL        (0x08)
+#define IMU_ODR_ALIGN_EN        (0x09)
+#define IMU_ACCEL_SMPLRT_DIV_1  (0x10)
+#define IMU_ACCEL_SMPLRT_DIV_2  (0x11)
+#define IMU_ACCEL_INTEL_CTRL    (0x12)
+#define IMU_ACCEL_WOM_THR       (0x13)
+#define IMU_ACCEL_CONFIG        (0x14)
+#define IMU_ACCEL_CONFIG_2      (0x15)
+#define IMU_FSYNC_CONFIG        (0x52)
+#define IMU_TEMP_CONFIG         (0x53)
+#define IMU_MOD_CTRL_USR        (0x54)
+
+// User Bank 3
+#define IMU_I2C_MST_ODR_CONFIG  (0x00)
+#define IMU_I2C_MST_CTRL        (0x01)
+#define IMU_I2C_MST_DELAY_CTRL  (0x02)
+#define IMU_I2C_SLV0_ADDR       (0x03)
+#define IMU_I2C_SLV0_REG        (0x04)
+#define IMU_I2C_SLV0_CTRL       (0x05)
+#define IMU_I2C_SLV0_DO         (0x06)
+#define IMU_I2C_SLV1_ADDR       (0x07)
+#define IMU_I2C_SLV1_REG        (0x08)
+#define IMU_I2C_SLV1_CTRL       (0x09)
+#define IMU_I2C_SLV1_DO         (0x0A)
+#define IMU_I2C_SLV2_ADDR       (0x0B)
+#define IMU_I2C_SLV2_REG        (0x0C)
+#define IMU_I2C_SLV2_CTRL       (0x0D)
+#define IMU_I2C_SLV2_DO         (0x0E)
+#define IMU_I2C_SLV3_ADDR       (0x0F)
+#define IMU_I2C_SLV3_REG        (0x10)
+#define IMU_I2C_SLV3_CTRL       (0x11)
+#define IMU_I2C_SLV3_DO         (0x12)
+#define IMU_I2C_SLV4_ADDR       (0x13)
+#define IMU_I2C_SLV4_REG        (0x14)
+#define IMU_I2C_SLV4_CTRL       (0x15)
+#define IMU_I2C_SLV4_DO         (0x16)
+#define IMU_I2C_SLV4_DI         (0x17)
+
 // Magnetometer
-#define AKM_REG_WHOAMI      (0x01)
-#define AKM_REG_ST1         (0x10)
-#define AKM_REG_HXL         (0x11)
-#define AKM_REG_ST2         (0x18)
-#define AKM_REG_CNTL2       (0x31)
-#define AKM_REG_CNTL3       (0x32)
+#define AKM_WIA2        (0x01)
+#define AKM_ST1         (0x10)
+#define AKM_HXL         (0x11)
+#define AKM_ST2         (0x18)
+#define AKM_CNTL2       (0x31)
+#define AKM_CNTL3       (0x32)
 
 // ST1: Status 1 Read Only
 #define AKM_DATA_READY      (0x01)
@@ -89,100 +158,117 @@ int compassAddress = 0x0C;
 // CNTL2: Control2 Read/Write
 #define AKM_POWER_DOWN                    (0x00)
 #define AKM_SINGLE_MEASUREMENT            (0x01)
-#define AKM_CONTINUOUS_MEASUREMENT_MODE1  (0x02)
-#define AKM_CONTINUOUS_MEASUREMENT_MODE2  (0x04)
-#define AKM_CONTINUOUS_MEASUREMENT_MODE3  (0x06)
-#define AKM_CONTINUOUS_MEASUREMENT_MODE4  (0x08)
+#define AKM_CONTINUOUS_MEASUREMENT_MODE1  (0x02) // 10 Hz
+#define AKM_CONTINUOUS_MEASUREMENT_MODE2  (0x04) // 20 Hz
+#define AKM_CONTINUOUS_MEASUREMENT_MODE3  (0x06) // 40 Hz
+#define AKM_CONTINUOUS_MEASUREMENT_MODE4  (0x08) // 100 Hz
 #define AKM_MODE_SELF_TEST                (0x10)
 
 // CNTL3: Control 3 Read/Write
 #define AKM_SOFT_RESET (0x01)
 
-
-
-#define AKM_WHOAMI      (0x09)
-
 #define BIT_I2C_READ        (0x80)
 #define BIT_SLAVE_BYTE_SW   (0x40)
 #define BIT_SLAVE_GROUP     (0x10)
 #define BIT_SLAVE_EN        (0x80)
-#define BIT_I2C_MST_VDDIO   (0x80)
-
-#define INT_PIN_CFG        0x37
-#define INT_ENABLE         0x38
 
 int mpuInit(boolean mode)
 {
   int ecode;
-   if (printDiags) SerialUSB.print("MPU Init\n");
-   if(mode==0)
-  {
-     ecode = I2Cwrite(imuAddress, 0x6B, 0x40);  //Sleep mode, internal 8 MHz oscillator  //another mode is cycle where it wakes up periodically to take a value
+   if (printDiags) {
+    SerialUSB.println("MPU Init");
+   }
+  if(I2Cread8(imuAddress, IMU_WHO_AM_I)==234) SerialUSB.println("ICM20948 detected");
+
+  // get out of sleep mode, make sure LP_EN disabled so can write to all registers
+  I2Cwrite(imuAddress, IMU_PWR_MGMT_1, 0x01);
+  
+  if(mode==0){
+     ecode = I2Cwrite(imuAddress, IMU_PWR_MGMT_1, 0x49);  //Sleep mode, temp sensor off, auto select clock
      return ecode;
   }
 
-    //set clock source
-    ecode = I2Cwrite(imuAddress, 0x6B, 0x01);  //everything awake; clock from X gyro reference
+  I2Cwrite(imuAddress, IMU_LP_CONFIG, 0x00); // disable duty cycled mode
+  I2Cwrite(imuAddress, IMU_PWR_MGMT_2, 0x00); // accelerometer and gyroscope all axes on
+  I2Cwrite(imuAddress, IMU_INT_PIN_CFG,0x12); //active high, push-pull, 50 us interrupt pulse, clear on any read, FSYNC disable interrupt, bypass enable 
+  I2Cwrite(imuAddress, IMU_INT_ENABLE, 0x00); // no interrupts from FSYNC, wake on motion, PLL RDY, DMP, or I2C master
+  I2Cwrite(imuAddress, IMU_INT_ENABLE_1, 0x00); // no interrupt from raw data ready
+  I2Cwrite(imuAddress, IMU_INT_ENABLE_2, 0x00); // no interrupt from FIFO overflow
+  I2Cwrite(imuAddress, IMU_INT_ENABLE_3, 0x01); // interrupt from FIFO watermark
+
+  byte sampleRateDiv = 0x09;
+  // Gyroscope setup USR BANK 2
+  I2Cwrite(imuAddress, IMU_REG_BANK_SEL, USR_BNK_2); // select register bank 2
+  I2Cwrite(imuAddress, IMU_GYRO_SMPLRT_DIV, sampleRateDiv);   // GYRO_SMPLRT_DIV=0x09=9; 110 Hz sample rate = 1100 Hz / (1+GYRO_SMPLRT_DIV)
+  I2Cwrite(imuAddress, IMU_GYRO_CONFIG_1, 0x1F); //Full scale = 2000 dps; FCHOICE=1 (LPF ON), DLPFCFG=3; 3DB BW = 51.2 Hz
+  I2Cwrite(imuAddress, IMU_GYRO_CONFIG_2, 0x02); // 4x averaging 
+
+  I2Cwrite(imuAddress, IMU_ODR_ALIGN_EN, 0x01); //ODR start time alignment when gyro or accel sample rate registers written
   
-    // configure frame sync and LPF
-    I2Cwrite(imuAddress, 0x1A, 0x03);  //no frame sync; Gyro to sample at 1 kHz with DLPF 41 Hz (4.8 ms delay)
-    
-    // set gyro range
-    I2Cwrite(imuAddress, 0x1B, 0x10);  // 0x10 +/- 1000 deg/s ; 0x18 +/-2000 deg/s Fchoice_b = 00 (use DLPF)
-    
-    // set sample rate divider
-    I2Cwrite(imuAddress, 0x19, 9);  //  0x31=49=>20Hz; 1kHz/(1+4)=200; divide 1 kHz/(1+9)=100 Hz sample rate for all sensors
-
-        // set accel range
-    I2Cwrite(imuAddress, 0x1C, 0x18); // 0x18 =  +/- 16 g  DEFAULT
-    if (accel_scale == 2) I2Cwrite(imuAddress, 0x1C, 0x00); // 2g
-    if (accel_scale == 4) I2Cwrite(imuAddress, 0x1C, 0x08); // 4g
-    if (accel_scale == 8) I2Cwrite(imuAddress, 0x1C, 0x10); // 8g
+  // Accelerometer setup USR BANK 2
+  I2Cwrite(imuAddress, IMU_ACCEL_SMPLRT_DIV_1, 0x00);
+  I2Cwrite(imuAddress, IMU_ACCEL_SMPLRT_DIV_2, sampleRateDiv); // same sample rate as Gyro
+  I2Cwrite(imuAddress, IMU_ACCEL_CONFIG, 0x1F); // DLPF=3; Accelerometer full scale = +/-16g; enable DLPF
+  I2Cwrite(imuAddress, IMU_ACCEL_CONFIG_2, 0x00); // 4x averaging
+  I2Cwrite(imuAddress, IMU_ACCEL_INTEL_CTRL, 0x00); // no wake on motion
   
-    // Accelerometer Configuration 2
-    I2Cwrite(imuAddress, 0x1D, 0x03); // low pass filter at 41 Hz (11.8 ms delay)
+  // setup compass; USR Bank 3
+  I2Cwrite(imuAddress, IMU_REG_BANK_SEL, USR_BNK_3);
+  I2Cwrite(imuAddress, IMU_I2C_MST_CTRL, 0x07);
+  I2Cwrite(imuAddress, IMU_I2C_SLV0_ADDR, BIT_I2C_READ | compassAddress); //request read
+  I2Cwrite(imuAddress, IMU_I2C_SLV0_REG, AKM_HXL); // I2c slave 0 register address from where to begin data transfer
+  // need to read 8 bytes so read through ST2 register, so frees compass registers for new data writes
+  I2Cwrite(imuAddress, IMU_I2C_SLV0_CTRL, BIT_SLAVE_EN  | BIT_SLAVE_GROUP | BIT_SLAVE_BYTE_SW | 0x08); // store data to ext_sens_data register; swap bytes; even numbered register ends group; read 8 bytes (0x08) 
 
-    // Configure Interrupts and Bypass Enable
-    // Set interrupt pin active high, push-pull, hold interrupt pin level HIGH
-    // until interrupt cleared, clear on read of INT_STATUS, and enable
-    // I2C_BYPASS_EN so additional chips can join the I2C bus and all can be
-    // controlled by the Arduino as master.
-     I2Cwrite(imuAddress, INT_PIN_CFG, 0x22);
-    // Enable data ready (bit 0) interrupt
-     I2Cwrite(imuAddress, INT_ENABLE, 0x01);
+  // Pass-through mode to compass
+  I2Cwrite(imuAddress, IMU_REG_BANK_SEL, USR_BNK_0); // back to User bank 0
+  I2Cwrite(imuAddress, IMU_USER_CTRL, 0x00); // DMP disabled, FIFO disabled, I2C pass through mode to set up magnetometer
 
-    // setup compass
-    SerialUSB.print("Compass ");
-    SerialUSB.println(setup_compass());
-
-    // using FIFO mode to automatically move magnetometer readings
-    I2Cwrite(imuAddress, 0x66, 0x07); // reset FIFO
-    I2Cwrite(imuAddress, 0x66, 0x60); // FIFO enabled, Master Mode enabled
-
-   return ecode;
+  SerialUSB.print("Compass ID"); 
+  SerialUSB.println(I2Cread8(compassAddress, AKM_WIA2));
+  I2Cwrite(compassAddress, AKM_CNTL2, AKM_CONTINUOUS_MEASUREMENT_MODE4);
+  
+  // start taking readings
+  I2Cwrite(imuAddress, IMU_REG_BANK_SEL, USR_BNK_0); // back to User bank 0
+  I2Cwrite(imuAddress, IMU_FIFO_EN_1, 0x01); // EXT_SENS_DATA registers associated to SLV_0 to the FIFO
+  I2Cwrite(imuAddress, IMU_FIFO_EN_2, 0x10); // accel and gyro to FIFO, not temperature
+  I2Cwrite(imuAddress, IMU_FIFO_MODE, 0x00); // Stream data to FIFO
+  I2Cwrite(imuAddress, IMU_PWR_MGMT_1, 0x01); // power on, auto-select best clock source, temperature sensor enabled
+  //I2Cwrite(imuAddress, IMU_USER_CTRL, 0xE0); // DMP enabled, FIFO enabled, I2C Master enabled to get magnetometer
+  resetGyroFIFO();
+  return ecode;
 }
 
 void resetGyroFIFO(){
-    I2Cwrite(imuAddress, 0x66, 0x07); // reset FIFO
-    I2Cwrite(imuAddress, 0x66, 0x60); // FIFO enabled, Master Mode enabled
+    I2Cwrite(imuAddress, IMU_FIFO_RST, 0x01); // reset FIFO
+    I2Cwrite(imuAddress, IMU_FIFO_RST, 0x00); // deassert
 }
 
 byte I2Cwrite(byte addr, byte reg, byte val)
 {
   Wire.beginTransmission(addr);  
-  Wire.write(reg);  // gyro scale, sample rate and LPF
+  Wire.write(reg);  
   Wire.write(val);  
   byte ecode=Wire.endTransmission(); //end transmission
-  if (printDiags) SerialUSB.print(ecode);
-  delay(5);
   return ecode;
+}
+
+byte I2Cread8(byte addr, byte reg){
+  Wire.beginTransmission(addr);  
+  Wire.write(reg);  
+  Wire.endTransmission();
+  Wire.beginTransmission(addr); 
+  Wire.requestFrom(addr,(uint8_t)1);
+  uint8_t data = Wire.read();
+  Wire.endTransmission();
+  return data;
 }
 
 void readImu()
 {
   int i = 0;
   Wire.beginTransmission(imuAddress); 
-  Wire.write(0x3B);        //sends address to read from  0x3B is direct read; 0x74 is FIFO
+  Wire.write(IMU_ACCEL_XOUT_H); //sends address to read from IMU_ACCEL_XOUT_H is direct read; IMU_FIFO_R_W is FIFO
   Wire.endTransmission(0); //send restart to keep connection alive
   Wire.requestFrom(imuAddress, 20, 0); //send restart to keep alive
   while(Wire.available()){
@@ -197,7 +283,7 @@ int getImuFifo()
  int fifopts; 
  // read FIFO size
   Wire.beginTransmission(imuAddress); 
-  Wire.write(0x70);        //sends address to read from
+  Wire.write(IMU_FIFO_COUNTH);        //sends address to read from
   Wire.endTransmission(); //end transmission
   Wire.requestFrom(imuAddress, 2);  
   
@@ -209,67 +295,23 @@ int getImuFifo()
     FIFO_CNT[i]= Wire.read();  // receive one byte
     i++;
   }
-  fifopts=FIFO_CNT[0]<<8|FIFO_CNT[1];
+  fifopts=((FIFO_CNT[0]&0x1F)<<8)|FIFO_CNT[1];
    
  return fifopts; 
 }
 
- /* This initialization is similar to the one in ak8975.c. */
-int setup_compass(void)
-{
-   byte data;
-   /* Set up master mode, master clock, and ES bit. */
-    data = 0x40;
-    if (I2Cwrite(imuAddress, 0x24, data))
-        return -6;
-
-    /* Slave 0 reads from AKM data registers. */
-    data = BIT_I2C_READ | compassAddress;
-    if (I2Cwrite(imuAddress, 0x25, data))
-        return -7;
-
-    /* Compass reads start at this register. */
-    data = AKM_REG_HXL;
-    if (I2Cwrite(imuAddress, 0x26, data))
-        return -8;
-
-    /* Enable slave 0, 6-byte reads. */
-    data = BIT_SLAVE_EN  | BIT_SLAVE_GROUP | BIT_SLAVE_BYTE_SW | 6;
-    //data= BIT_SLAVE_EN | 8;
-    if (I2Cwrite(imuAddress, 0x27, data))
-        return -9;
-
-    /* Slave 1 changes AKM measurement mode. */
-    data = compassAddress;
-    if (I2Cwrite(imuAddress, 0x28, data))
-        return -10;
-
-    /* AKM measurement mode register. */
-    data = AKM_REG_CNTL;
-    if (I2Cwrite(imuAddress, 0x29, data))
-        return -11;
-
-    /* Enable slave 1, 1-byte writes. */
-    data = BIT_SLAVE_EN | 1;
-    if (I2Cwrite(imuAddress, 0x2A, data))
-        return -12;
-
-    /* Set slave 1 data. */
-    data = AKM_SINGLE_MEASUREMENT;
-    if (I2Cwrite(imuAddress, 0x64, data))
-        return -13;
-
-    /* Trigger slave 0 and slave 1 actions at each sample. */
-    data = 0x03;
-    if (I2Cwrite(imuAddress, 0x67, data))
-        return -14;
-
-    /* For the MPU9150, the auxiliary I2C bus needs to be set to VDD. */
-    data = BIT_I2C_MST_VDDIO;
-    if (I2Cwrite(imuAddress, 0x01, data))
-        return -15;
-        
-    return 0;
+// direct read of compass
+void readCompass(){
+  Wire.beginTransmission(compassAddress);
+  Wire.write(AKM_HXL);
+  Wire.endTransmission();
+  Wire.requestFrom(compassAddress, 8);
+  int i = 14;
+  while(Wire.available()){
+    imuTempBuffer[i] = Wire.read();
+    SerialUSB.print(imuTempBuffer[i]);
+    i++;
+  }
 }
 
 int intStatus(){
