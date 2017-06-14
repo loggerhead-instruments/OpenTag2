@@ -205,6 +205,7 @@ void initSensors(){
       SerialUSB.print(magnetom_y); SerialUSB.print("\t");
       SerialUSB.print(magnetom_z); SerialUSB.print("\t");
       SerialUSB.println(gyro_temp);
+      SerialUSB.print("FIFO pts:"); SerialUSB.println(getImuFifo()); //check FIFO is working
       delay(200);
     }
 }
