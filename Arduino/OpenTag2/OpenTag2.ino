@@ -10,16 +10,21 @@
 // RGB light
 // GPS
 
+
+// buffer system so don't write to card when file closed
+
+// - write ASCII and speed test (can it keep up, what is idle time?)
+// - if ASCII works, write header
 // - LED
 // - RTC set
 // - MPU
 // - PT
 // - Burn
 // - VHF
-// - RGB
 // - Display
 // - GPS
 // - Low power
+// - Delay start
 
 #include <Wire.h>
 #include <SPI.h>
@@ -28,9 +33,11 @@
 
 // DEFAULT SETTINGS
 int printDiags = 1;
+int imuSrate = 100; // must be integer for timer
+int sensorSrate = 10; // must divide into imuSrate
+int recDur = 30;
+int recInt = 0;
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
-
-
 //
 
 #ifdef MS5837_30bar
@@ -56,12 +63,17 @@ int printDiags = 1;
 #define LED2 21 // PA27
 #define LED3 22 // PB22
 #define chipSelect 10
+#define vSense 18  // PA05
 
+#define CPU_HZ 48000000
+#define TIMER_PRESCALER_DIV 1024
 
 // SD file system
 SdFat sd;
 File dataFile;
 int fileCount; 
+
+int ssCounter; // used to get different sample rates from one timer based on imu_srate
 
 // Time
 RTCZero rtc;
@@ -82,13 +94,31 @@ uint16_t TEMPSENS; //Temperature sensitivity coefficient
 byte Tbuff[3];
 byte Pbuff[3];
 volatile float depth, temperature, pressure_mbar;
+boolean togglePress = 0; // flag to toggle conversion of temperature and pressure
+
+
+// Pressure, Temp double buffer
+#define PTBUFFERSIZE 40
+float PTbuffer[PTBUFFERSIZE];
+byte time2writePT = 0; 
+volatile byte bufferposPT=0;
+byte halfbufPT = PTBUFFERSIZE/2;
+boolean firstwrittenPT;
 
 // RGB
 int16_t islRed;
 int16_t islBlue;
 int16_t islGreen;
 
-// IMU
+// RGB buffer
+#define RGBBUFFERSIZE 60
+int16_t RGBbuffer[RGBBUFFERSIZE];
+byte time2writeRGB=0; 
+int RGBCounter = 0;
+volatile byte bufferposRGB=0;
+byte halfbufRGB = RGBBUFFERSIZE/2;
+boolean firstwrittenRGB;
+
 // IMU
 int FIFOpts;
 #define IMUBUFFERSIZE 1800 
@@ -102,14 +132,18 @@ volatile uint8_t imuTempBuffer[22];
 int16_t accel_x;
 int16_t accel_y;
 int16_t accel_z;
-int16_t magnetom_x;
-int16_t magnetom_y;
-int16_t magnetom_z;
+int16_t mag_x;
+int16_t mag_y;
+int16_t mag_z;
 int16_t gyro_x;
 int16_t gyro_y;
 int16_t gyro_z;
 float gyro_temp;
 int accel_scale = 0;
+
+int mode = 0; //standby = 0; running = 1
+
+uint32_t t, startTime, endTime;
 
 void setup() {
   SerialUSB.begin(115200);
@@ -117,7 +151,6 @@ void setup() {
   SerialUSB.println("Loggerhead OpenTag2");
   delay(8000);
   
-
   Wire.begin();
   Wire.setClock(400);  // set I2C clock to 400 kHz
   rtc.begin();
@@ -132,20 +165,43 @@ void setup() {
     SerialUSB.println("Card failed");
   }
 
-  for(int x=0; x<100; x++){
-    initSensors();
-  }
-
-  fileInit();
-
-  dataFile.close();
-  SerialUSB.println("Done");
+  initSensors();
+  t = rtc.getEpoch();
+  startTime = t + 2;
+  SerialUSB.print("Time:"); SerialUSB.println(t);
+  SerialUSB.print("Start Time:"); SerialUSB.println(startTime);
 }
 
 void loop() {
+  // Waiting: check if time to start
+  while(mode==0){
+    t = rtc.getEpoch();
+    if(t >= startTime){
+      endTime = startTime + recDur;
+      startTime += recDur + recInt;  // this will be next start time for interval record
+      fileInit();
+      startTimer((int) imuSrate); // start timer
+      updateTemp();  // get first reading ready
+      mode = 1;
+    }
+  }
 
-
-
+  // Recording: check if time to end
+  while(mode==1){
+    t = rtc.getEpoch();
+    writeData();
+    if(t >= endTime){
+      dataFile.close(); // close file
+      if(recInt==0){  // no interval between files
+        endTime += recDur;  // update end time
+        fileInit();
+        break;
+      }
+      stopTimer(); // interval between files
+      mode = 0;
+      break;
+    }
+  }
 }
 
 void initSensors(){
@@ -179,24 +235,10 @@ void initSensors(){
 
   // IMU
   SerialUSB.println(mpuInit(1));
-  for(int i=0; i<100; i++){
+  for(int i=0; i<10; i++){
     readImu();
-    readCompass();
-    accel_x = (int16_t) ((int16_t)imuTempBuffer[0] << 8 | imuTempBuffer[1]);    
-    accel_y = (int16_t) ((int16_t)imuTempBuffer[2] << 8 | imuTempBuffer[3]);   
-    accel_z = (int16_t) ((int16_t)imuTempBuffer[4] << 8 | imuTempBuffer[5]);    
-
-    gyro_x = (int16_t) (((int16_t)imuTempBuffer[6]) << 8 | imuTempBuffer[7]);  
-    gyro_y = (int16_t)  (((int16_t)imuTempBuffer[8] << 8) | imuTempBuffer[9]);   
-    gyro_z = (int16_t)  (((int16_t)imuTempBuffer[10] << 8) | imuTempBuffer[11]);  
-        
-    gyro_temp = (int16_t) (((int16_t)imuTempBuffer[12]) << 8 | imuTempBuffer[13]); 
-    
-    magnetom_x = (int16_t)  (((int16_t)imuTempBuffer[15] << 8) | imuTempBuffer[14]);   
-    magnetom_y = (int16_t)  (((int16_t)imuTempBuffer[17] << 8) | imuTempBuffer[16]);   
-    magnetom_z = (int16_t)  (((int16_t)imuTempBuffer[19] << 8) | imuTempBuffer[18]); 
+    calcImu();
  
-     
     SerialUSB.print("a/g/m/t: \t");
     SerialUSB.print( accel_x); SerialUSB.print("\t");
     SerialUSB.print( accel_y); SerialUSB.print("\t");
@@ -204,10 +246,9 @@ void initSensors(){
     SerialUSB.print(gyro_x); SerialUSB.print("\t");
     SerialUSB.print(gyro_y); SerialUSB.print("\t");
     SerialUSB.print(gyro_z); SerialUSB.print("\t");
-    SerialUSB.print(magnetom_x); SerialUSB.print("\t");
-    SerialUSB.print(magnetom_y); SerialUSB.print("\t");
-    SerialUSB.print(magnetom_z); SerialUSB.print("\t");
-    SerialUSB.println(gyro_temp);
+    SerialUSB.print(mag_x); SerialUSB.print("\t");
+    SerialUSB.print(mag_y); SerialUSB.print("\t");
+    SerialUSB.print(mag_z); SerialUSB.print("\t");
     SerialUSB.print("FIFO pts:"); SerialUSB.println(getImuFifo()); //check FIFO is working
     delay(100);
   }
@@ -237,10 +278,120 @@ void getTime(){
   second = rtc.getSeconds();
 }
 
-void writeSensors(){
-  char sensorLine[255];
-  getTime();
-  sprintf(sensorLine,"%04d-%02d-%02dT%02d:%02d:%02d.AMX", year, month, day, hour, minute, second);
-  dataFile.println(sensorLine);
+void sampleSensors(void){  //interrupt at update_rate
+  ssCounter++;
+  
+  readImu();
+  readCompass();
+  incrementIMU();
+
+  // MS58xx start temperature conversion half-way through
+  if((ssCounter>=(0.5 * imuSrate / sensorSrate)) & togglePress){ 
+    readPress();   
+    updateTemp();
+    togglePress = 0;
+  }
+  
+  if(ssCounter>=(int)(imuSrate/sensorSrate)){
+    ssCounter = 0;
+    // MS58xx pressure and temperature
+    readTemp();
+    updatePress();
+    togglePress = 1;
+
+    // RGB
+    islRead(); 
+    incrementRGBbufpos(islRed);
+    incrementRGBbufpos(islGreen);
+    incrementRGBbufpos(islBlue);
+    
+    calcPressTemp(); // MS58xx pressure and temperature
+    
+    incrementPTbufpos(pressure_mbar);
+    incrementPTbufpos(temperature);
+  }
 }
 
+void calcImu(){
+  accel_x = (int16_t) ((int16_t)imuTempBuffer[0] << 8 | imuTempBuffer[1]);    
+  accel_y = (int16_t) ((int16_t)imuTempBuffer[2] << 8 | imuTempBuffer[3]);   
+  accel_z = (int16_t) ((int16_t)imuTempBuffer[4] << 8 | imuTempBuffer[5]);    
+
+  gyro_x = (int16_t) (((int16_t)imuTempBuffer[6]) << 8 | imuTempBuffer[7]);  
+  gyro_y = (int16_t)  (((int16_t)imuTempBuffer[8] << 8) | imuTempBuffer[9]);   
+  gyro_z = (int16_t)  (((int16_t)imuTempBuffer[10] << 8) | imuTempBuffer[11]);  
+  
+  mag_x = (int16_t)  (((int16_t)imuTempBuffer[13] << 8) | imuTempBuffer[12]);   
+  mag_y = (int16_t)  (((int16_t)imuTempBuffer[15] << 8) | imuTempBuffer[14]);   
+  mag_z = (int16_t)  (((int16_t)imuTempBuffer[17] << 8) | imuTempBuffer[16]); 
+}
+
+float readVoltage(){
+  float vDivider = 0.8333;
+  float vReg = 3.3;
+  float voltage = (float) analogRead(vSense) * vReg / (vDivider * 1024.0);
+  return voltage;
+}
+
+
+/*
+This is a slightly modified version of the timer setup found at:
+https://github.com/maxbader/arduino_tools
+ */
+void startTimer(int frequencyHz) {
+  //GCLK->GENCTRL.reg |= GCLK_GENCTRL_ID(0) | GCLK_GENCTRL_RUNSTDBY;
+  REG_GCLK_CLKCTRL = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID (GCM_TCC2_TC3)) ;
+  while ( GCLK->STATUS.bit.SYNCBUSY == 1 );
+
+  TcCount16* TC = (TcCount16*) TC3;
+  TC->CTRLA.reg &= ~TC_CTRLA_ENABLE;
+  //TC->CTRLA.reg |= TC_CTRLA_RUNSTDBY;
+  
+  // Use the 16-bit timer
+  TC->CTRLA.reg |= TC_CTRLA_MODE_COUNT16;
+  while (TC->STATUS.bit.SYNCBUSY == 1);
+
+  // Use match mode so that the timer counter resets when the count matches the compare register
+  TC->CTRLA.reg |= TC_CTRLA_WAVEGEN_MFRQ;
+  while (TC->STATUS.bit.SYNCBUSY == 1);
+
+  // Set prescaler to 1024
+  TC->CTRLA.reg |= TC_CTRLA_PRESCALER_DIV1024;
+  while (TC->STATUS.bit.SYNCBUSY == 1);
+
+  setTimerFrequency(frequencyHz);
+
+  // Enable the compare interrupt
+  TC->INTENSET.reg = 0;
+  TC->INTENSET.bit.MC0 = 1;
+
+  NVIC_EnableIRQ(TC3_IRQn);
+
+  TC->CTRLA.reg |= TC_CTRLA_ENABLE;
+  while (TC->STATUS.bit.SYNCBUSY == 1);
+}
+
+void setTimerFrequency(int frequencyHz) {
+  int compareValue = (CPU_HZ / (TIMER_PRESCALER_DIV * frequencyHz)) - 1;
+  TcCount16* TC = (TcCount16*) TC3;
+  // Make sure the count is in a proportional position to where it was
+  // to prevent any jitter or disconnect when changing the compare value.
+  TC->COUNT.reg = map(TC->COUNT.reg, 0, TC->CC[0].reg, 0, compareValue);
+  TC->CC[0].reg = compareValue;
+  while (TC->STATUS.bit.SYNCBUSY == 1);
+}
+
+void TC3_Handler() {
+  TcCount16* TC = (TcCount16*) TC3;
+  // If this interrupt is due to the compare register matching the timer count
+  // we toggle the LED.
+  if (TC->INTFLAG.bit.MC0 == 1) {
+    TC->INTFLAG.bit.MC0 = 1;
+    sampleSensors();
+  }
+}
+
+void stopTimer(){
+  // TcCount16* TC = (TcCount16*) TC3; // get timer struct
+   NVIC_DisableIRQ(TC3_IRQn);
+}

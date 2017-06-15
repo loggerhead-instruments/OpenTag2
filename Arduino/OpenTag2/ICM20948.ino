@@ -270,7 +270,7 @@ void readImu()
   Wire.beginTransmission(imuAddress); 
   Wire.write(IMU_ACCEL_XOUT_H); //sends address to read from IMU_ACCEL_XOUT_H is direct read; IMU_FIFO_R_W is FIFO
   Wire.endTransmission(0); //send restart to keep connection alive
-  Wire.requestFrom(imuAddress, 20, 0); //send restart to keep alive
+  Wire.requestFrom(imuAddress, 12, 0); //send restart to keep alive
   while(Wire.available()){
     imuTempBuffer[i] = Wire.read(); 
     i++;
@@ -306,10 +306,9 @@ void readCompass(){
   Wire.write(AKM_HXL);
   Wire.endTransmission();
   Wire.requestFrom(compassAddress, 8);
-  int i = 14;
+  int i = 12;
   while(Wire.available()){
     imuTempBuffer[i] = Wire.read();
-    SerialUSB.print(imuTempBuffer[i]);
     i++;
   }
 }
