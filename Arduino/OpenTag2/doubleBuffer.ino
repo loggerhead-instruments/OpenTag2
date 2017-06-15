@@ -84,42 +84,27 @@ void incrementIMU(){
 
   if(bufferposIMU==IMUBUFFERSIZE)
   {
+    if(time2writeIMU!=0) SerialUSB.println("overflow");
     bufferposIMU = 0;
     time2writeIMU= 2;  // set flag to write second half
     firstwrittenIMU = 0; 
   }
   if((bufferposIMU>=halfbufIMU) & !firstwrittenIMU)  //at end of first buffer
   {
+    if(time2writeIMU!=0) SerialUSB.println("overflow");
     time2writeIMU = 1; 
     firstwrittenIMU = 1;  //flag to prevent first half from being written more than once; reset when reach end of double buffer
   }
 }
 
 void writeData(){
-  // write IMU values to file
-  if(time2writeIMU==1)
-  {
-//    if(dataFile.write((uint8_t *) & sidRec[3],sizeof(SID_REC))==-1) resetFunc();
-//    if(dataFile.write((uint8_t *) & imuBuffer[0], halfbufIMU)==-1) resetFunc(); 
-    time2writeIMU = 0;
-  }
-  if(time2writeIMU==2)
-  {
-//    if(dataFile.write((uint8_t *) & sidRec[3],sizeof(SID_REC))==-1) resetFunc();
-//    if(dataFile.write((uint8_t *) & imuBuffer[halfbufIMU], halfbufIMU)==-1) resetFunc();     
-    time2writeIMU = 0;
-  } 
-  
-  // write Pressure & Temperature to file
+  // based on pressure/temperature buffer, because that is last one written
+  // all buffers align
   if(time2writePT==1){
-//    if(dataFile.write((uint8_t *)&sidRec[1],sizeof(SID_REC))==-1) resetFunc();
-//    if(dataFile.write((uint8_t *)&PTbuffer[0], halfbufPT * 4)==-1) resetFunc(); 
     writeSensors(0);
     time2writePT = 0;
   }
-  if(time2writePT==2){
-//    if(dataFile.write((uint8_t *)&sidRec[1],sizeof(SID_REC))==-1) resetFunc();
-//    if(dataFile.write((uint8_t *)&PTbuffer[halfbufPT], halfbufPT * 4)==-1) resetFunc();   
+  if(time2writePT==2){  
     writeSensors(1);  
     time2writePT = 0;
   }   
@@ -143,6 +128,7 @@ void writeImu(int lineFeed){
 void writeSensors(int halfBuf){
   String sensorLine; // text to write to file
   int iPressure, iRGB, iImu, iTime; //index into buffer
+  time2writeIMU = 0;
   if(halfBuf==1) {
     iPressure = halfbufPT;
     iRGB = halfbufRGB;

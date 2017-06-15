@@ -85,8 +85,8 @@ volatile byte year = 17;
 //
 // SENSORS
 //
-int imuSrate = 100; // must be integer for timer. If change sample rate, need to adjust buffer size
-int sensorSrate = 1; // must divide into imuSrate. If change sample rate, need to adjust buffer size
+int imuSrate = 200; // must be integer for timer. If change sample rate, need to adjust buffer size
+int sensorSrate = 2; // must divide into imuSrate. If change sample rate, need to adjust buffer size
 
 //Pressure and temp calibration coefficients
 uint16_t PSENS; //pressure sensitivity
@@ -325,7 +325,6 @@ void sampleSensors(void){  //interrupt at update_rate
     incrementTimebufpos();
     
     calcPressTemp(); // MS58xx pressure and temperature
-    
     incrementPTbufpos(pressure_mbar);
     incrementPTbufpos(temperature);
   }
