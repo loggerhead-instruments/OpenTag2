@@ -37,10 +37,25 @@ void incrementRGBbufpos(int16_t val){
 }
 
 void incrementIMU(){
-  for(int i=0; i<18; i++){
-    imuBuffer[bufferposIMU] = (uint8_t) imuTempBuffer[i]; //accelerometer (X,Y,Z), gyro, mag 
-    bufferposIMU++;
-  }
+  imuBuffer[bufferposIMU] = accel_x;
+  bufferposIMU++;
+  imuBuffer[bufferposIMU] = accel_y;
+  bufferposIMU++;
+  imuBuffer[bufferposIMU] = accel_z;
+  bufferposIMU++;
+  imuBuffer[bufferposIMU] = gyro_x;
+  bufferposIMU++;
+  imuBuffer[bufferposIMU] = gyro_y;
+  bufferposIMU++;
+  imuBuffer[bufferposIMU] = gyro_z; 
+  bufferposIMU++;
+  imuBuffer[bufferposIMU] = mag_x;
+  bufferposIMU++;
+  imuBuffer[bufferposIMU] = mag_y; 
+  bufferposIMU++;
+  imuBuffer[bufferposIMU] = mag_z; 
+  bufferposIMU++;
+
   if(bufferposIMU==IMUBUFFERSIZE)
   {
     bufferposIMU = 0;
@@ -100,18 +115,35 @@ void writeImu(int lineFeed){
 }
 
 void writeSensors(int halfBuf){
- // char sensorLine[255];
- String sensorLine;
-  int iPressure, iRGB;
+  String sensorLine;
+  int iPressure, iRGB, iImu;
   if(halfBuf==1) {
     iPressure = halfbufPT;
     iRGB = halfbufRGB;
+    iImu = halfbufIMU;
   }
   else{
     iPressure = 0;
     iRGB = 0;
+    iImu = 0;
   }
+
+  int nImuVals = imuSrate/sensorSrate;
   for (int i=iRGB; i<halfbufRGB; i+=3){
+    // write out imuSrate/sensorSrate (100) lines of IMU for each line of other sensor data
+    sensorLine="";
+    for (int j = 0; j<nImuVals; j++){
+      for (int k = 0; k<9; k++){
+        sensorLine += imuBuffer[iImu];
+        if(k<8) sensorLine += ",";
+        iImu++;
+      }
+      if((j<nImuVals - 1)) {
+        dataFile.println(sensorLine);  // write line to file unless last line
+        SerialUSB.println(sensorLine);
+        sensorLine = "";
+      }
+    }
     sensorLine += ","; sensorLine += RGBbuffer[i];
     sensorLine += ","; sensorLine += RGBbuffer[i+1];
     sensorLine += ","; sensorLine += RGBbuffer[i+2];
@@ -119,7 +151,6 @@ void writeSensors(int halfBuf){
     sensorLine += ","; sensorLine += PTbuffer[iPressure+1];
     dataFile.println(sensorLine);
     SerialUSB.println(sensorLine);
-    sensorLine = "";
     iPressure+=2;
   }
 }

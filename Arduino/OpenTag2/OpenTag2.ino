@@ -33,8 +33,6 @@
 
 // DEFAULT SETTINGS
 int printDiags = 1;
-int imuSrate = 100; // must be integer for timer
-int sensorSrate = 10; // must divide into imuSrate
 int recDur = 30;
 int recInt = 0;
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
@@ -84,6 +82,12 @@ volatile byte day = 1;
 volatile byte month = 1;
 volatile byte year = 17;
 
+//
+// SENSORS
+//
+int imuSrate = 100; // must be integer for timer. If change sample rate, need to adjust buffer size
+int sensorSrate = 1; // must divide into imuSrate. If change sample rate, need to adjust buffer size
+
 //Pressure and temp calibration coefficients
 uint16_t PSENS; //pressure sensitivity
 uint16_t POFF;  //Pressure offset
@@ -96,10 +100,11 @@ byte Pbuff[3];
 volatile float depth, temperature, pressure_mbar;
 boolean togglePress = 0; // flag to toggle conversion of temperature and pressure
 
-
+// Pressure/Temp and RGB sensor buffers need to sample so they full half-buf at same time
+// because writing to file is only done by checking Pressure/Temp
 // Pressure, Temp double buffer
-#define PTBUFFERSIZE 40
-float PTbuffer[PTBUFFERSIZE];
+#define PTBUFFERSIZE 4
+volatile float PTbuffer[PTBUFFERSIZE];
 byte time2writePT = 0; 
 volatile byte bufferposPT=0;
 byte halfbufPT = PTBUFFERSIZE/2;
@@ -111,8 +116,9 @@ int16_t islBlue;
 int16_t islGreen;
 
 // RGB buffer
-#define RGBBUFFERSIZE 60
-int16_t RGBbuffer[RGBBUFFERSIZE];
+// RGBBUFFERSIZE = 20 * 3 channels * 1/sec / 10
+#define RGBBUFFERSIZE 6
+volatile int16_t RGBbuffer[RGBBUFFERSIZE];
 byte time2writeRGB=0; 
 int RGBCounter = 0;
 volatile byte bufferposRGB=0;
@@ -120,9 +126,9 @@ byte halfbufRGB = RGBBUFFERSIZE/2;
 boolean firstwrittenRGB;
 
 // IMU
-int FIFOpts;
+// IMUBUFFERSIZE = 20 * 9 channels * 100 / sec / 10
 #define IMUBUFFERSIZE 1800 
-volatile byte imuBuffer[IMUBUFFERSIZE]; // buffer used to store IMU sensor data before writes in bytes
+volatile int16_t imuBuffer[IMUBUFFERSIZE]; // buffer used to store IMU sensor data before writes in bytes
 volatile byte time2writeIMU=0; 
 volatile int IMUCounter = 0;
 volatile int bufferposIMU = 0;
@@ -237,12 +243,13 @@ void initSensors(){
   SerialUSB.println(mpuInit(1));
   for(int i=0; i<10; i++){
     readImu();
+    readCompass();
     calcImu();
  
     SerialUSB.print("a/g/m/t: \t");
-    SerialUSB.print( accel_x); SerialUSB.print("\t");
-    SerialUSB.print( accel_y); SerialUSB.print("\t");
-    SerialUSB.print( accel_z); SerialUSB.print("\t");
+    SerialUSB.print(accel_x); SerialUSB.print("\t");
+    SerialUSB.print(accel_y); SerialUSB.print("\t");
+    SerialUSB.print(accel_z); SerialUSB.print("\t");
     SerialUSB.print(gyro_x); SerialUSB.print("\t");
     SerialUSB.print(gyro_y); SerialUSB.print("\t");
     SerialUSB.print(gyro_z); SerialUSB.print("\t");
@@ -283,6 +290,7 @@ void sampleSensors(void){  //interrupt at update_rate
   
   readImu();
   readCompass();
+  calcImu();
   incrementIMU();
 
   // MS58xx start temperature conversion half-way through
