@@ -36,6 +36,32 @@ void incrementRGBbufpos(int16_t val){
   }
 }
 
+
+void incrementTimebufpos(){
+  timeBuffer[bufferposTime] = year;
+  bufferposTime++;
+  timeBuffer[bufferposTime] = month;
+  bufferposTime++;
+  timeBuffer[bufferposTime] = day;
+  bufferposTime++;
+  timeBuffer[bufferposTime] = hour;
+  bufferposTime++;
+  timeBuffer[bufferposTime] = minute;
+  bufferposTime++;
+  timeBuffer[bufferposTime] = second;
+  bufferposTime++;
+  
+  if(bufferposTime==TIMEBUFFERSIZE)
+  {
+   bufferposTime = 0;
+   firstwrittenTime = 0; 
+  }
+  if((bufferposTime>=halfbufTime) & !firstwrittenTime)  //at end of first buffer
+  {
+    firstwrittenTime = 1;  //flag to prevent first half from being written more than once; reset when reach end of double buffer
+  }
+}
+
 void incrementIMU(){
   imuBuffer[bufferposIMU] = accel_x;
   bufferposIMU++;
@@ -115,17 +141,19 @@ void writeImu(int lineFeed){
 }
 
 void writeSensors(int halfBuf){
-  String sensorLine;
-  int iPressure, iRGB, iImu;
+  String sensorLine; // text to write to file
+  int iPressure, iRGB, iImu, iTime; //index into buffer
   if(halfBuf==1) {
     iPressure = halfbufPT;
     iRGB = halfbufRGB;
     iImu = halfbufIMU;
+    iTime = halfbufTime;
   }
   else{
     iPressure = 0;
     iRGB = 0;
     iImu = 0;
+    iTime = 0;
   }
 
   int nImuVals = imuSrate/sensorSrate;
@@ -140,7 +168,7 @@ void writeSensors(int halfBuf){
       }
       if((j<nImuVals - 1)) {
         dataFile.println(sensorLine);  // write line to file unless last line
-        SerialUSB.println(sensorLine);
+        //SerialUSB.println(sensorLine);
         sensorLine = "";
       }
     }
@@ -149,8 +177,16 @@ void writeSensors(int halfBuf){
     sensorLine += ","; sensorLine += RGBbuffer[i+2];
     sensorLine += ","; sensorLine += PTbuffer[iPressure];
     sensorLine += ","; sensorLine += PTbuffer[iPressure+1];
+    sensorLine += ","; sensorLine += timeBuffer[iTime];
+    sensorLine += "-"; sensorLine += timeBuffer[iTime+1];
+    sensorLine += "-"; sensorLine += timeBuffer[iTime+2];
+    sensorLine += "T"; sensorLine += timeBuffer[iTime+3];
+    sensorLine += ":"; sensorLine += timeBuffer[iTime+4];
+    sensorLine += ":"; sensorLine += timeBuffer[iTime+5];
+    
     dataFile.println(sensorLine);
     SerialUSB.println(sensorLine);
-    iPressure+=2;
+    iPressure += 2;
+    iTime += 6;
   }
 }

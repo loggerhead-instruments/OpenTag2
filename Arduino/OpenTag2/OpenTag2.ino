@@ -125,6 +125,14 @@ volatile byte bufferposRGB=0;
 byte halfbufRGB = RGBBUFFERSIZE/2;
 boolean firstwrittenRGB;
 
+// YEAR, MONTH, DAY, HOUR, MINUTE, SECOND
+// TIMEBUFFERSIZE = 20 * 6 * 1/sec / 10
+#define TIMEBUFFERSIZE 12
+volatile int16_t timeBuffer[TIMEBUFFERSIZE];
+volatile byte bufferposTime = 0;
+byte halfbufTime = TIMEBUFFERSIZE / 2;
+boolean firstwrittenTime;
+
 // IMU
 // IMUBUFFERSIZE = 20 * 9 channels * 100 / sec / 10
 #define IMUBUFFERSIZE 1800 
@@ -161,7 +169,7 @@ void setup() {
   Wire.setClock(400);  // set I2C clock to 400 kHz
   rtc.begin();
 
-  year=2017; month=6; day=12;
+  year=17; month=6; day=12;
   hour=0; minute=0; second=0;
   rtc.setTime(hour, minute, second);
   rtc.setDate(day, month, year);
@@ -312,6 +320,9 @@ void sampleSensors(void){  //interrupt at update_rate
     incrementRGBbufpos(islRed);
     incrementRGBbufpos(islGreen);
     incrementRGBbufpos(islBlue);
+
+    getTime();
+    incrementTimebufpos();
     
     calcPressTemp(); // MS58xx pressure and temperature
     
