@@ -157,7 +157,7 @@ int compassAddress = 0x0C;
 
 // CNTL2: Control2 Read/Write
 #define AKM_POWER_DOWN                    (0x00)
-#define AKM_SINGLE_MEASUREMENT            (0x01)
+#define AKM_SINGLE_MEASUREMENT_MODE       (0x01)
 #define AKM_CONTINUOUS_MEASUREMENT_MODE1  (0x02) // 10 Hz
 #define AKM_CONTINUOUS_MEASUREMENT_MODE2  (0x04) // 20 Hz
 #define AKM_CONTINUOUS_MEASUREMENT_MODE3  (0x06) // 40 Hz
@@ -168,9 +168,9 @@ int compassAddress = 0x0C;
 #define AKM_SOFT_RESET (0x01)
 
 #define BIT_I2C_READ        (0x80)
+#define BIT_SLAVE_EN        (0x80)
 #define BIT_SLAVE_BYTE_SW   (0x40)
 #define BIT_SLAVE_GROUP     (0x10)
-#define BIT_SLAVE_EN        (0x80)
 
 int mpuInit(boolean mode)
 {
@@ -178,23 +178,31 @@ int mpuInit(boolean mode)
    if (printDiags) {
     SerialUSB.println("MPU Init");
    }
-  if(I2Cread8(imuAddress, IMU_WHO_AM_I)==234) SerialUSB.println("ICM20948 detected");
 
-  // get out of sleep mode, make sure LP_EN disabled so can write to all registers
-  I2Cwrite(imuAddress, IMU_PWR_MGMT_1, 0x01);
-  
+  SerialUSB.print("IMU ID:");
+  SerialUSB.println(I2Cread8(imuAddress, IMU_WHO_AM_I));
   if(mode==0){
      ecode = I2Cwrite(imuAddress, IMU_PWR_MGMT_1, 0x49);  //Sleep mode, temp sensor off, auto select clock
      return ecode;
   }
-
-  I2Cwrite(imuAddress, IMU_LP_CONFIG, 0x00); // disable duty cycled mode
+  
+  I2Cwrite(imuAddress, IMU_PWR_MGMT_1, 0x01); // get out of sleep mode, make sure LP_EN disabled so can write to all registers
   I2Cwrite(imuAddress, IMU_PWR_MGMT_2, 0x00); // accelerometer and gyroscope all axes on
+
+  //I2Cwrite(imuAddress, IMU_LP_CONFIG, 0x00); // disable duty cycled mode
+  
+  //I2Cwrite(imuAddress, IMU_USER_CTRL, 0x00); // DMP disabled, FIFO disabled, I2C pass through mode to set up magnetometer
+  I2Cwrite(imuAddress, IMU_USER_CTRL, 0x20); // DMP disabled, FIFO disabled, I2C master mode so talk to magnetometer through ICM
+  
   I2Cwrite(imuAddress, IMU_INT_PIN_CFG,0x12); //active high, push-pull, 50 us interrupt pulse, clear on any read, FSYNC disable interrupt, bypass enable 
+  //I2Cwrite(imuAddress, IMU_INT_PIN_CFG,0x10); //active high, push-pull, 50 us interrupt pulse, clear on any read, FSYNC disable interrupt
+
+  setupMag();
+
   I2Cwrite(imuAddress, IMU_INT_ENABLE, 0x00); // no interrupts from FSYNC, wake on motion, PLL RDY, DMP, or I2C master
   I2Cwrite(imuAddress, IMU_INT_ENABLE_1, 0x00); // no interrupt from raw data ready
   I2Cwrite(imuAddress, IMU_INT_ENABLE_2, 0x00); // no interrupt from FIFO overflow
-  I2Cwrite(imuAddress, IMU_INT_ENABLE_3, 0x01); // interrupt from FIFO watermark
+  I2Cwrite(imuAddress, IMU_INT_ENABLE_3, 0x00); // no interrupt from FIFO watermark
 
   byte sampleRateDiv = 0x09;
   // Gyroscope setup USR BANK 2
@@ -212,33 +220,53 @@ int mpuInit(boolean mode)
   I2Cwrite(imuAddress, IMU_ACCEL_CONFIG_2, 0x00); // 4x averaging
   I2Cwrite(imuAddress, IMU_ACCEL_INTEL_CTRL, 0x00); // no wake on motion
   
-  // setup compass; USR Bank 3
-  I2Cwrite(imuAddress, IMU_REG_BANK_SEL, USR_BNK_3);
-  I2Cwrite(imuAddress, IMU_I2C_MST_CTRL, 0x07);
-  I2Cwrite(imuAddress, IMU_I2C_SLV0_ADDR, BIT_I2C_READ | compassAddress); //request read
-  I2Cwrite(imuAddress, IMU_I2C_SLV0_REG, AKM_HXL); // I2c slave 0 register address from where to begin data transfer
-  // need to read 8 bytes so read through ST2 register, so frees compass registers for new data writes
-  I2Cwrite(imuAddress, IMU_I2C_SLV0_CTRL, BIT_SLAVE_EN  | BIT_SLAVE_GROUP | BIT_SLAVE_BYTE_SW | 0x08); // store data to ext_sens_data register; swap bytes; even numbered register ends group; read 8 bytes (0x08) 
-
-  // Pass-through mode to compass
-  I2Cwrite(imuAddress, IMU_REG_BANK_SEL, USR_BNK_0); // back to User bank 0
-  I2Cwrite(imuAddress, IMU_USER_CTRL, 0x00); // DMP disabled, FIFO disabled, I2C pass through mode to set up magnetometer
-
-  SerialUSB.print("Compass ID"); 
-  SerialUSB.println(I2Cread8(compassAddress, AKM_WIA2));
-  I2Cwrite(compassAddress, AKM_CNTL2, AKM_CONTINUOUS_MEASUREMENT_MODE4);
-  
   // start taking readings
   I2Cwrite(imuAddress, IMU_REG_BANK_SEL, USR_BNK_0); // back to User bank 0
   I2Cwrite(imuAddress, IMU_FIFO_EN_1, 0x01); // EXT_SENS_DATA registers associated to SLV_0 to the FIFO
   I2Cwrite(imuAddress, IMU_FIFO_EN_2, 0x10); // accel and gyro to FIFO, not temperature
   I2Cwrite(imuAddress, IMU_FIFO_MODE, 0x00); // Stream data to FIFO
   I2Cwrite(imuAddress, IMU_PWR_MGMT_1, 0x01); // power on, auto-select best clock source, temperature sensor enabled
-  //I2Cwrite(imuAddress, IMU_USER_CTRL, 0xE0); // DMP enabled, FIFO enabled, I2C Master enabled to get magnetometer
+  I2Cwrite(imuAddress, IMU_USER_CTRL, 0xE0); // DMP enabled, FIFO enabled, I2C Master enabled to get magnetometer
   resetGyroFIFO();
   return ecode;
 }
 
+int setupMag(){
+  // AKM is magnetometer
+  I2Cwrite(imuAddress, IMU_REG_BANK_SEL, USR_BNK_3); // User bank 3 for I2C commands through gyro
+
+  I2Cwrite(imuAddress, IMU_I2C_MST_CTRL, 0x07);  // set I2C master clock frequency to 7 (recommended for max 400 kHz i2c)
+  
+  // Use Slave 4 to talk to compass via ICM to configure and start conversions
+  // try to read ID
+  I2Cwrite(imuAddress, IMU_I2C_SLV4_ADDR, BIT_I2C_READ | compassAddress);
+  I2Cwrite(imuAddress, IMU_I2C_SLV4_REG, AKM_WIA2); // get who am i of compass
+  I2Cwrite(imuAddress, IMU_I2C_SLV4_CTRL, BIT_SLAVE_EN | 0x01); // conversion of 1 byte
+  delay(1);
+  SerialUSB.print("Magnetometer ID:");
+  SerialUSB.println(I2Cread8(imuAddress, IMU_I2C_SLV4_DI));
+  
+  I2Cwrite(imuAddress, IMU_I2C_SLV4_ADDR, compassAddress); // transfer is a write, address of compass slave
+  I2Cwrite(imuAddress, IMU_I2C_SLV4_REG, AKM_CNTL2); // I2C slave 4 register address from where to begin transfer
+ // I2Cwrite(imuAddress, IMU_I2C_SLV4_DO, AKM_SINGLE_MEASUREMENT_MODE); // load data out on IMU to send to AKM
+  I2Cwrite(imuAddress, IMU_I2C_SLV4_DO, AKM_CONTINUOUS_MEASUREMENT_MODE4); // load data out on IMU to send to AKM
+  // read back register to see if set
+  SerialUSB.print("SLV4_DO:");
+  SerialUSB.println(I2Cread8(imuAddress, IMU_I2C_SLV4_DO));
+  
+  I2Cwrite(imuAddress, IMU_I2C_SLV4_CTRL, BIT_SLAVE_EN);  // enable transfer to AKM slave
+
+  // Slave 0 will handle getting data from magnetometer
+  I2Cwrite(imuAddress, IMU_I2C_SLV0_ADDR, BIT_I2C_READ | compassAddress); //request read
+  I2Cwrite(imuAddress, IMU_I2C_SLV0_REG, AKM_HXL); // I2c slave 0 register address from where to begin data transfer
+  // need to read 8 bytes so read through ST2 register, so frees compass registers for new data writes
+  I2Cwrite(imuAddress, IMU_I2C_SLV0_CTRL, BIT_SLAVE_EN  | BIT_SLAVE_GROUP | BIT_SLAVE_BYTE_SW | 0x08); // store data to ext_sens_data register; swap bytes; even numbered register ends group; read 8 bytes (0x08) 
+
+   
+  I2Cwrite(imuAddress, IMU_REG_BANK_SEL, USR_BNK_0); // back to User bank 0
+//  I2Cwrite(imuAddress, IMU_I2C_MST_DELAY_CTRL, 0x11); // slave 0 and slave 4 delay--triggers them together?
+  return 1;
+}
 void resetGyroFIFO(){
     I2Cwrite(imuAddress, IMU_FIFO_RST, 0x01); // reset FIFO
     I2Cwrite(imuAddress, IMU_FIFO_RST, 0x00); // deassert
@@ -270,7 +298,7 @@ void readImu()
   Wire.beginTransmission(imuAddress); 
   Wire.write(IMU_ACCEL_XOUT_H); //sends address to read from IMU_ACCEL_XOUT_H is direct read; IMU_FIFO_R_W is FIFO
   Wire.endTransmission(0); //send restart to keep connection alive
-  Wire.requestFrom(imuAddress, 12, 0); //send restart to keep alive
+  Wire.requestFrom(imuAddress, 20, 0); //send restart to keep alive // read 20 because need 2 additional bytes to reset magnetometer
   while(Wire.available()){
     imuTempBuffer[i] = Wire.read(); 
     i++;
@@ -316,18 +344,12 @@ void readCompass(){
 int intStatus(){
   byte intStatus; 
   Wire.beginTransmission(imuAddress); 
-  Wire.write(0x3A);        //sends address to read from
-  Wire.endTransmission(); //end transmission
-  Wire.requestFrom(imuAddress, 1);    // request 6 bytes from device
-  
-  byte FIFO_CNT[2];
-  int i=0;
- 
+  Wire.write(IMU_INT_STATUS);        
+  Wire.endTransmission();           
+  Wire.requestFrom(imuAddress, 1); 
   if(Wire.available())   // ((Wire.available())&&(i<6))
   { 
     intStatus = Wire.read();  // receive one byte
   }
-   
  return intStatus; 
 }
-

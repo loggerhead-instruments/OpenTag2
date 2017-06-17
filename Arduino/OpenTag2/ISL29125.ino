@@ -87,6 +87,7 @@ int _addr = 0x44;
 
 bool islInit(){
   bool ret = true;
+  SerialUSB.println("islInit");
   ret = config(CFG1_MODE_RGB | CFG1_10KLUX, CFG2_IR_ADJUST_HIGH, CFG_DEFAULT); 
   return ret;
 }
@@ -137,11 +138,12 @@ uint16_t read16(uint8_t reg)
 // Generic I2C write data to register (single byte)
 void write8(uint8_t reg, uint8_t data)
 {
+  SerialUSB.println("write8");
   Wire.beginTransmission(_addr);
   Wire.write(reg);
   Wire.write(data);
   Wire.endTransmission();
-  
+
   return;
 }
 
@@ -150,7 +152,7 @@ bool config(uint8_t config1, uint8_t config2, uint8_t config3)
 {
   bool ret = true;
   uint8_t data = 0x00;
-  
+  SerialUSB.println("islConfig");
   // Set 1st configuration register
   write8(CONFIG_1, config1);
   // Set 2nd configuration register
@@ -160,6 +162,7 @@ bool config(uint8_t config1, uint8_t config2, uint8_t config3)
   
   // Check if configurations were set correctly
   data = read8(CONFIG_1);
+  if(printDiags) SerialUSB.println(data);
   if (data != config1)
   {
     ret &= false;

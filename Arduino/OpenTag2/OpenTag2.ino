@@ -57,9 +57,9 @@ int recInt = 0;
 
 
 // pin assignments
-#define LED1 20 // PB23
-#define LED2 21 // PA27
-#define LED3 22 // PB22
+//#define LED1  // PB23
+//#define LED2  // PA27
+//#define LED3  // PB22
 #define chipSelect 10
 #define vSense 18  // PA05
 
@@ -166,7 +166,7 @@ void setup() {
   delay(8000);
   
   Wire.begin();
-  Wire.setClock(400);  // set I2C clock to 400 kHz
+  Wire.setClock(400000);  // set I2C clock to 400 kHz
   rtc.begin();
 
   year=17; month=6; day=12;
@@ -219,9 +219,9 @@ void loop() {
 }
 
 void initSensors(){
-  pinMode(LED1, OUTPUT);
-  pinMode(LED2, OUTPUT);
-  pinMode(LED3, OUTPUT);
+//  pinMode(LED1, OUTPUT);
+//  pinMode(LED2, OUTPUT);
+//  pinMode(LED3, OUTPUT);
 
   // RGB
   SerialUSB.print("RGBinit: ");
@@ -251,7 +251,6 @@ void initSensors(){
   SerialUSB.println(mpuInit(1));
   for(int i=0; i<10; i++){
     readImu();
-    readCompass();
     calcImu();
  
     SerialUSB.print("a/g/m/t: \t");
@@ -297,7 +296,7 @@ void sampleSensors(void){  //interrupt at update_rate
   ssCounter++;
   
   readImu();
-  readCompass();
+  //readCompass();
   calcImu();
   incrementIMU();
 
@@ -339,9 +338,9 @@ void calcImu(){
   gyro_y = (int16_t)  (((int16_t)imuTempBuffer[8] << 8) | imuTempBuffer[9]);   
   gyro_z = (int16_t)  (((int16_t)imuTempBuffer[10] << 8) | imuTempBuffer[11]);  
   
-  mag_x = (int16_t)  (((int16_t)imuTempBuffer[13] << 8) | imuTempBuffer[12]);   
-  mag_y = (int16_t)  (((int16_t)imuTempBuffer[15] << 8) | imuTempBuffer[14]);   
-  mag_z = (int16_t)  (((int16_t)imuTempBuffer[17] << 8) | imuTempBuffer[16]); 
+  mag_x = (int16_t)  (((int16_t)imuTempBuffer[14] << 8) | imuTempBuffer[15]);   
+  mag_y = (int16_t)  (((int16_t)imuTempBuffer[16] << 8) | imuTempBuffer[17]);   
+  mag_z = (int16_t)  (((int16_t)imuTempBuffer[18] << 8) | imuTempBuffer[19]); 
 }
 
 float readVoltage(){
