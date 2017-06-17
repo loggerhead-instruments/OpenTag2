@@ -19,6 +19,8 @@
 // - GPS
 // - Low power
 // - Delay start
+// - store voltage
+// - stop record
 
 #include <Wire.h>
 #include <SPI.h>
@@ -278,6 +280,7 @@ void fileInit()
     
    }
    dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,red,green,blue,pressure(mBar),temperature,datetime");
+   SdFile::dateTimeCallback(file_date_time);
   SerialUSB.println(filename);
 }
 
@@ -423,4 +426,10 @@ void getChipId() {
   val4 = *ptr;
   sprintf(myID, "%8x%8x%8x%8x", val1, val2, val3, val4);
   SerialUSB.println(myID);
+}
+//This function returns the date and time for SD card file access and modify time. One needs to call in setup() to register this callback function: SdFile::dateTimeCallback(file_date_time);
+void file_date_time(uint16_t* date, uint16_t* time) 
+{
+  *date=FAT_DATE(year + 2000,month,day);
+  *time=FAT_TIME(hour,minute,second);
 }
