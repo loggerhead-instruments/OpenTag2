@@ -49,21 +49,26 @@ int mpuInit(boolean mode)
 
     //set clock source
     ecode = I2Cwrite(GyroAddress, 0x6B, 0x01);  //everything awake; clock from X gyro reference
-  
+    SerialUSB.println("Power on");
+    
     // configure frame sync and LPF
     I2Cwrite(GyroAddress, 0x1A, 0x03);  //no frame sync; Gyro to sample at 1 kHz with DLPF 41 Hz (4.8 ms delay)
+    SerialUSB.println("MPU sample rate");
     
     // set gyro range
     I2Cwrite(GyroAddress, 0x1B, 0x10);  // 0x10 +/- 1000 deg/s ; 0x18 +/-2000 deg/s Fchoice_b = 00 (use DLPF)
+    SerialUSB.println("Gyro range");
     
     // set sample rate divider
     I2Cwrite(GyroAddress, 0x19, 9);  //  0x31=49=>20Hz; 1kHz/(1+4)=200; divide 1 kHz/(1+9)=100 Hz sample rate for all sensors
-
+    SerialUSB.println("Sample rate divider");
+    
         // set accel range
     I2Cwrite(GyroAddress, 0x1C, 0x18); // 0x18 =  +/- 16 g  DEFAULT
     if (accel_scale == 2) I2Cwrite(GyroAddress, 0x1C, 0x00); // 2g
     if (accel_scale == 4) I2Cwrite(GyroAddress, 0x1C, 0x08); // 4g
     if (accel_scale == 8) I2Cwrite(GyroAddress, 0x1C, 0x10); // 8g
+    SerialUSB.println("Accelerometer scale");
   
     // Accelerometer Configuration 2
     I2Cwrite(GyroAddress, 0x1D, 0x03); // low pass filter at 41 Hz (11.8 ms delay)
@@ -79,6 +84,7 @@ int mpuInit(boolean mode)
 
     // setup compass
     setup_compass();
+    SerialUSB.println("Compass configured");
 
     // using FIFO mode to automatically move magnetometer readings
     I2Cwrite(GyroAddress, 0x6A, 0x07); // reset FIFO
@@ -98,8 +104,6 @@ byte I2Cwrite(byte addr, byte reg, byte val)
   Wire.write(reg);  // gyro scale, sample rate and LPF
   Wire.write(val);  
   byte ecode=Wire.endTransmission(); //end transmission
-  if (printDiags) SerialUSB.print(ecode);
-  delay(5);
   return ecode;
 }
 
@@ -218,4 +222,5 @@ int intStatus(){
    
  return intStatus; 
 }
+
 

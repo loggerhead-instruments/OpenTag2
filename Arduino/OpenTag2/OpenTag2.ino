@@ -85,8 +85,8 @@ volatile byte year = 17;
 //
 // SENSORS
 //
-int imuSrate = 200; // must be integer for timer. If change sample rate, need to adjust buffer size
-int sensorSrate = 2; // must divide into imuSrate. If change sample rate, need to adjust buffer size
+int imuSrate = 100; // must be integer for timer. If change sample rate, need to adjust buffer size
+int sensorSrate = 1; // must divide into imuSrate. If change sample rate, need to adjust buffer size
 
 //Pressure and temp calibration coefficients
 uint16_t PSENS; //pressure sensitivity
@@ -116,7 +116,7 @@ int16_t islBlue;
 int16_t islGreen;
 
 // RGB buffer
-// RGBBUFFERSIZE = 20 * 3 channels * 1/sec / 10
+// RGBBUFFERSIZE = 2 * 3 channels * 1/sec
 #define RGBBUFFERSIZE 6
 volatile int16_t RGBbuffer[RGBBUFFERSIZE];
 byte time2writeRGB=0; 
@@ -126,7 +126,7 @@ byte halfbufRGB = RGBBUFFERSIZE/2;
 boolean firstwrittenRGB;
 
 // YEAR, MONTH, DAY, HOUR, MINUTE, SECOND
-// TIMEBUFFERSIZE = 20 * 6 * 1/sec / 10
+// TIMEBUFFERSIZE = 2 * 6 * 1/sec
 #define TIMEBUFFERSIZE 12
 volatile int16_t timeBuffer[TIMEBUFFERSIZE];
 volatile byte bufferposTime = 0;
@@ -134,7 +134,7 @@ byte halfbufTime = TIMEBUFFERSIZE / 2;
 boolean firstwrittenTime;
 
 // IMU
-// IMUBUFFERSIZE = 20 * 9 channels * 100 / sec / 10
+// IMUBUFFERSIZE = 2 * 9 channels * 100 / sec
 #define IMUBUFFERSIZE 1800 
 volatile int16_t imuBuffer[IMUBUFFERSIZE]; // buffer used to store IMU sensor data before writes in bytes
 volatile byte time2writeIMU=0; 
@@ -153,7 +153,7 @@ int16_t gyro_x;
 int16_t gyro_y;
 int16_t gyro_z;
 float gyro_temp;
-int accel_scale = 0;
+int accel_scale = 16;
 
 int mode = 0; //standby = 0; running = 1
 
@@ -223,17 +223,6 @@ void initSensors(){
 //  pinMode(LED2, OUTPUT);
 //  pinMode(LED3, OUTPUT);
 
-  // RGB
-  SerialUSB.print("RGBinit: ");
-  SerialUSB.println(islInit()); 
-  for(int n=0; n<4; n++){
-      islRead();
-      SerialUSB.print("R:"); SerialUSB.print(islRed); SerialUSB.print("\t");
-      SerialUSB.print("G:"); SerialUSB.print(islGreen); SerialUSB.print("\t");
-      SerialUSB.print("B:"); SerialUSB.println(islBlue);
-      delay(200);
-  }
-
   // Pressure/Temperature
   pressInit();
   updatePress();
@@ -246,7 +235,7 @@ void initSensors(){
   SerialUSB.print(" press:"); SerialUSB.print(pressure_mbar);
   SerialUSB.print(" depth:"); SerialUSB.print(depth);
   SerialUSB.print(" temp:"); SerialUSB.println(temperature);
-
+  
   // IMU
   SerialUSB.println(mpuInit(1));
   for(int i=0; i<10; i++){
@@ -265,6 +254,17 @@ void initSensors(){
     SerialUSB.print(mag_z); SerialUSB.print("\t");
     SerialUSB.print("FIFO pts:"); SerialUSB.println(getImuFifo()); //check FIFO is working
     delay(100);
+  }
+  
+  // RGB
+  SerialUSB.print("RGBinit: ");
+  SerialUSB.println(islInit()); 
+  for(int n=0; n<4; n++){
+      islRead();
+      SerialUSB.print("R:"); SerialUSB.print(islRed); SerialUSB.print("\t");
+      SerialUSB.print("G:"); SerialUSB.print(islGreen); SerialUSB.print("\t");
+      SerialUSB.print("B:"); SerialUSB.println(islBlue);
+      delay(200);
   }
 }
 
@@ -412,3 +412,4 @@ void stopTimer(){
   // TcCount16* TC = (TcCount16*) TC3; // get timer struct
    NVIC_DisableIRQ(TC3_IRQn);
 }
+

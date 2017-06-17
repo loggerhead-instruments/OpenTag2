@@ -50,6 +50,8 @@ void incrementTimebufpos(){
   bufferposTime++;
   timeBuffer[bufferposTime] = second;
   bufferposTime++;
+
+  SerialUSB.println(second);
   
   if(bufferposTime==TIMEBUFFERSIZE)
   {
@@ -100,11 +102,11 @@ void incrementIMU(){
 void writeData(){
   // based on pressure/temperature buffer, because that is last one written
   // all buffers align
-  if(time2writePT==1){
+  if(time2writePT==1){  //first half
     writeSensors(0);
     time2writePT = 0;
   }
-  if(time2writePT==2){  
+  if(time2writePT==2){  // second half
     writeSensors(1);  
     time2writePT = 0;
   }   
@@ -126,27 +128,32 @@ void writeImu(int lineFeed){
 }
 
 void writeSensors(int halfBuf){
+  SerialUSB.print("Write buf:");
+  SerialUSB.println(halfBuf);
   String sensorLine; // text to write to file
-  int iPressure, iRGB, iImu, iTime; //index into buffer
+  int iPressure, iRGB, iImu, iTime, iStart, iEnd; //index into buffer
   time2writeIMU = 0;
   if(halfBuf==1) {
-    iPressure = halfbufPT;
+    iStart = halfbufTime;
+    iEnd = TIMEBUFFERSIZE;
     iRGB = halfbufRGB;
-    iImu = halfbufIMU;
+    iPressure = halfbufPT;
     iTime = halfbufTime;
+    iImu = halfbufIMU;
   }
   else{
-    iPressure = 0;
+    iStart = 0;
+    iEnd = halfbufTime;
     iRGB = 0;
-    iImu = 0;
+    iPressure = 0;
     iTime = 0;
+    iImu = 0;
   }
 
   int nImuVals = imuSrate/sensorSrate;
-  for (int i=iRGB; i<halfbufRGB; i+=3){
-    // write out imuSrate/sensorSrate (100) lines of IMU for each line of other sensor data
+  for (int i=iStart; i<iEnd; i+=6){
     sensorLine="";
-    for (int j = 0; j<nImuVals; j++){
+    for (int j = 0; j<nImuVals; j++){ // write out imuSrate/sensorSrate (100) lines of IMU for each line of other sensor data
       for (int k = 0; k<9; k++){
         sensorLine += imuBuffer[iImu];
         if(k<8) sensorLine += ",";
@@ -158,9 +165,9 @@ void writeSensors(int halfBuf){
         sensorLine = "";
       }
     }
-    sensorLine += ","; sensorLine += RGBbuffer[i];
-    sensorLine += ","; sensorLine += RGBbuffer[i+1];
-    sensorLine += ","; sensorLine += RGBbuffer[i+2];
+    sensorLine += ","; sensorLine += RGBbuffer[iRGB];
+    sensorLine += ","; sensorLine += RGBbuffer[iRGB+1];
+    sensorLine += ","; sensorLine += RGBbuffer[iRGB+2];
     sensorLine += ","; sensorLine += PTbuffer[iPressure];
     sensorLine += ","; sensorLine += PTbuffer[iPressure+1];
     sensorLine += ","; sensorLine += timeBuffer[iTime];
@@ -173,6 +180,8 @@ void writeSensors(int halfBuf){
     dataFile.println(sensorLine);
     SerialUSB.println(sensorLine);
     iPressure += 2;
+    iRGB += 3;
     iTime += 6;
   }
 }
+

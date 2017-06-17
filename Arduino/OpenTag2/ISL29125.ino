@@ -138,12 +138,10 @@ uint16_t read16(uint8_t reg)
 // Generic I2C write data to register (single byte)
 void write8(uint8_t reg, uint8_t data)
 {
-  SerialUSB.println("write8");
   Wire.beginTransmission(_addr);
   Wire.write(reg);
   Wire.write(data);
   Wire.endTransmission();
-
   return;
 }
 
@@ -179,6 +177,7 @@ bool config(uint8_t config1, uint8_t config2, uint8_t config3)
   }
   return ret;
 }
+
 
 
 
