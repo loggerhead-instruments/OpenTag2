@@ -50,8 +50,6 @@ void incrementTimebufpos(){
   bufferposTime++;
   timeBuffer[bufferposTime] = second;
   bufferposTime++;
-
-  SerialUSB.println(second);
   
   if(bufferposTime==TIMEBUFFERSIZE)
   {
@@ -128,8 +126,8 @@ void writeImu(int lineFeed){
 }
 
 void writeSensors(int halfBuf){
-  SerialUSB.print("Write buf:");
-  SerialUSB.println(halfBuf);
+//  SerialUSB.print("Write buf:");
+//  SerialUSB.println(halfBuf);
   String sensorLine; // text to write to file
   int iPressure, iRGB, iImu, iTime, iStart, iEnd; //index into buffer
   time2writeIMU = 0;

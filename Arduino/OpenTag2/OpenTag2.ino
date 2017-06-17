@@ -11,14 +11,8 @@
 // GPS
 
 
-// buffer system so don't write to card when file closed
-
-// - write ASCII and speed test (can it keep up, what is idle time?)
-// - if ASCII works, write header
 // - LED
 // - RTC set
-// - MPU
-// - PT
 // - Burn
 // - VHF
 // - Display
@@ -72,6 +66,8 @@ File dataFile;
 int fileCount; 
 
 int ssCounter; // used to get different sample rates from one timer based on imu_srate
+
+char myID[33]; // ATSAM chipID
 
 // Time
 RTCZero rtc;
@@ -164,7 +160,8 @@ void setup() {
   delay(2000);
   SerialUSB.println("Loggerhead OpenTag2");
   delay(8000);
-  
+
+  getChipId();
   Wire.begin();
   Wire.setClock(400000);  // set I2C clock to 400 kHz
   rtc.begin();
@@ -270,9 +267,9 @@ void initSensors(){
 
 void fileInit()
 {
-   char filename[20];
+   char filename[60];
    getTime();
-   sprintf(filename,"%02d%02d%02d%02d.csv", day, hour, minute, second);  //filename is DDHHMM
+   sprintf(filename,"%02d%02d%02dT%02d%02d%02d_%s.csv", year, month, day, hour, minute, second, myID);  //filename is DDHHMM
    dataFile = sd.open(filename, O_WRITE | O_CREAT | O_APPEND);
    while (!dataFile){
     fileCount += 1;
@@ -280,6 +277,7 @@ void fileInit()
     dataFile = sd.open(filename, O_WRITE | O_CREAT | O_EXCL);
     
    }
+   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,red,green,blue,pressure(mBar),temperature,datetime");
   SerialUSB.println(filename);
 }
 
@@ -413,3 +411,16 @@ void stopTimer(){
    NVIC_DisableIRQ(TC3_IRQn);
 }
 
+void getChipId() {
+  volatile uint32_t val1, val2, val3, val4;
+  volatile uint32_t *ptr1 = (volatile uint32_t *)0x0080A00C;
+  val1 = *ptr1;
+  volatile uint32_t *ptr = (volatile uint32_t *)0x0080A040;
+  val2 = *ptr;
+  ptr++;
+  val3 = *ptr;
+  ptr++;
+  val4 = *ptr;
+  sprintf(myID, "%8x%8x%8x%8x", val1, val2, val3, val4);
+  SerialUSB.println(myID);
+}
