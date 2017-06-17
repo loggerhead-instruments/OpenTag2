@@ -168,12 +168,22 @@ void writeSensors(int halfBuf){
     sensorLine += ","; sensorLine += RGBbuffer[iRGB+2];
     sensorLine += ","; sensorLine += PTbuffer[iPressure];
     sensorLine += ","; sensorLine += PTbuffer[iPressure+1];
-    sensorLine += ","; sensorLine += timeBuffer[iTime];
-    sensorLine += "-"; sensorLine += timeBuffer[iTime+1];
-    sensorLine += "-"; sensorLine += timeBuffer[iTime+2];
-    sensorLine += "T"; sensorLine += timeBuffer[iTime+3];
-    sensorLine += ":"; sensorLine += timeBuffer[iTime+4];
-    sensorLine += ":"; sensorLine += timeBuffer[iTime+5];
+    sensorLine += ","; sensorLine += timeBuffer[iTime];  // year
+    sensorLine += "-"; 
+    if(timeBuffer[iTime+1] < 10) sensorLine += "0";
+    sensorLine += timeBuffer[iTime+1];
+    sensorLine += "-"; 
+    if(timeBuffer[iTime+2] < 10) sensorLine += "0";
+    sensorLine += timeBuffer[iTime+2];
+    sensorLine += "T"; 
+    if(timeBuffer[iTime+3] < 10) sensorLine += "0";
+    sensorLine += timeBuffer[iTime+3];
+    sensorLine += ":"; 
+    if(timeBuffer[iTime+4] < 10) sensorLine += "0";
+    sensorLine += timeBuffer[iTime+4];
+    sensorLine += ":"; 
+    if(timeBuffer[iTime+5] < 10) sensorLine += "0";
+    sensorLine += timeBuffer[iTime+5];
     
     dataFile.println(sensorLine);
     SerialUSB.println(sensorLine);
