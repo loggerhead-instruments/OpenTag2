@@ -10,17 +10,21 @@
 // RGB light
 // GPS
 
-
-// - LED
-// - RTC set
-// - Burn
-// - VHF
 // - Display
-// - GPS
+// - RTC set from script
+// - RTC set from buttons
+// - does it keep time when turned off?
+// - LED
+// - Burn set time
+// - VHF on when depth < 1 m
+// - set record duration and record interval
+// - sleep during record interval
 // - Low power
 // - Delay start
 // - store voltage
 // - stop record
+// - error if does not start correctly (e.g. stuck or bad Mag readings)
+// - GPS
 
 #include <Wire.h>
 #include <SPI.h>
@@ -159,24 +163,24 @@ uint32_t t, startTime, endTime;
 
 void setup() {
   SerialUSB.begin(115200);
-  delay(2000);
+  delay(5000);
   SerialUSB.println("Loggerhead OpenTag2");
-  delay(8000);
+  delay(1000);
+
+  // see if the card is present and can be initialized:
+  while (!sd.begin(chipSelect, SPI_FULL_SPEED)) {
+    SerialUSB.println("Card failed");
+    delay(1000);
+  }
+  rtc.begin();
+  loadScript(); // do this early to set time
+
+  delay(6000);
 
   getChipId();
   Wire.begin();
   Wire.setClock(400000);  // set I2C clock to 400 kHz
-  rtc.begin();
 
-  year=17; month=6; day=12;
-  hour=0; minute=0; second=0;
-  rtc.setTime(hour, minute, second);
-  rtc.setDate(day, month, year);
-  
-  // see if the card is present and can be initialized:
-  if (!sd.begin(chipSelect, SPI_FULL_SPEED)) {
-    SerialUSB.println("Card failed");
-  }
 
   initSensors();
   t = rtc.getEpoch();

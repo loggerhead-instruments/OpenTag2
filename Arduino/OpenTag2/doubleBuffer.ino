@@ -1,10 +1,6 @@
 // Double buffers for storing data sampled under interrupt
 // When buffer is half full, data are written to dataFile
 
-// To Do
-// - IMU
-// - timestamp with sensor data
-
 // increment PTbuffer position by 1 sample. This does not check for overflow, because collected at a slow rate
 void incrementPTbufpos(float val){
   PTbuffer[bufferposPT] = val;
