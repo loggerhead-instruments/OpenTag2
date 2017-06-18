@@ -29,10 +29,14 @@ void displaySettings(){
   if(mode==0) display.print("Standby");
   if(mode==1) display.print("Running");
   display.setCursor(0, displayLine2);
+  display.print("Start in: ");
+  display.print(startTime - t);
+  display.println("s");
+  display.setCursor(0, displayLine3);
   display.print("Rec:");
   display.print(recDur);
-  display.println("s");
-  display.print("Sleep:");
+  display.print("s");
+  display.print("  Sleep:");
   display.print(recInt);
   display.println("s");
 }

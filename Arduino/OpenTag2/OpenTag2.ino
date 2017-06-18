@@ -13,6 +13,7 @@
 // Change R11 to 50 kOhm give 0.667 voltage divider
 // - does it keep time when turned off---no, could use GPS module RTC
 // - error if does not start correctly (e.g. stuck or bad Mag readings); or show readings during start
+// - show startTime on screen
 // - GPS
 // - Low power (e.g. disable USB; check pin direction)
 
@@ -235,15 +236,9 @@ void setup() {
   getTime();
   readVoltage();
 
-  delay(8000);
+  delay(4000);
   SerialUSB.println("Loggerhead OpenTag2");
 
-  if(dd){
-    cDisplay();
-    displaySettings();
-    displayClock(displayLine4);
-    display.display();
-  }
   getChipId();
   initSensors();
   t = rtc.getEpoch();
@@ -257,6 +252,18 @@ void setup() {
   SerialUSB.print("Start Time:"); SerialUSB.println(startTime);
   digitalWrite(LED1, LOW);
   digitalWrite(LED2, LOW);
+
+  // wait here 8 seconds so can see settings
+  int startWait = millis();
+  while (millis()-startWait < 8000){
+      t = rtc.getEpoch();
+      getTime();
+      cDisplay();
+      displaySettings();
+      displayClock(displayLine4);
+      display.display();
+      delay(100);
+  }
 }
 
 void loop() {
@@ -277,16 +284,8 @@ void loop() {
       rtc.standbyMode();
       delay(10);
       digitalWrite(LED_RED, LOW);
+      rtc.disableAlarm();
     }
-//    else{ // turn display on 15 s before starting record
-//      if(dd){
-//        cDisplay();
-//        displaySettings();
-//        displayClock(displayLine4);
-//        display.display();
-//        delay(10);
-//      }
-//    }
 
     if(t >= startTime){
       endTime = startTime + recDur;
