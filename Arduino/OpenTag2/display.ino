@@ -16,6 +16,7 @@ void displayOff(){
 
 void cDisplay(){
   display.clearDisplay();
+  readVoltage();
   displayBattery();
   display.setTextColor(WHITE);
   display.setTextSize(1);

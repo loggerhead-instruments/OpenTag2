@@ -10,18 +10,17 @@
 // RGB light
 // GPS
 
-// - RTC set from buttons?
-// - does it keep time when turned off?
+// Change R11 to 50 kOhm give 0.667 voltage divider
+
+// - does it keep time when turned off---no, could use GPS module RTC
 // - LED
 // - Burn set time
 // - VHF on when depth < 1 m
 // - sleep during record interval
-// - Low power
 // - Delay start
-// - store voltage/display voltage
-// - stop record
 // - error if does not start correctly (e.g. stuck or bad Mag readings)
 // - GPS
+// - Low power
 
 // Button functions
 // RTC set
@@ -73,8 +72,12 @@ int recInt = 0;
 //#define LED2  // PA27
 //#define LED3  // PB22
 #define chipSelect 10
-#define vSense 18  // PA05
+#define vSense A4  // PA05
 #define displayPow 16
+//#define vhfPow // PB03
+#define burnWire 19
+#define BUTTON1 5 //PA15
+#define BUTTON2 11 //PA16
 
 #define CPU_HZ 48000000
 #define TIMER_PRESCALER_DIV 1024
@@ -183,7 +186,10 @@ uint32_t t, startTime, endTime;
 
 void setup() {
   SerialUSB.begin(115200);
-  
+
+  readVoltage();
+  pinMode(BUTTON1, INPUT_PULLUP);
+  pinMode(BUTTON2, INPUT_PULLUP);
 //  pinMode(displayPow, OUTPUT);
 //  digitalWrite(displayPow, HIGH);
 
@@ -256,6 +262,23 @@ void loop() {
       stopTimer(); // interval between files
       mode = 0;
       break;
+    }
+    if(digitalRead(BUTTON1)==0){
+      delay(10); // simple deBounce
+      if(digitalRead(BUTTON1)==0){
+        stopTimer();
+        dataFile.close();
+        displayOn();
+        cDisplay();
+        display.print("Stopped");
+        display.display();
+        delay(60000); // if don't power off in 60s, restart
+        cDisplay();
+        display.print("Restarting");
+        display.display();
+        fileInit();
+        startTimer((int) imuSrate); // start timer
+      }
     }
   }
 }
@@ -388,9 +411,9 @@ void calcImu(){
 }
 
 void readVoltage(){
-  float vDivider = 0.8333;
+  float vDivider = 0.6667;
   float vReg = 3.3;
-  float voltage = (float) analogRead(vSense) * vReg / (vDivider * 1024.0);
+  voltage = (float) analogRead(vSense) * vReg / (vDivider * 1024.0);
 }
 
 
