@@ -11,7 +11,7 @@
 // GPS
 
 // Change R11 to 50 kOhm give 0.667 voltage divider
-
+// check if can power display off pin
 // - does it keep time when turned off---no, could use GPS module RTC
 // - LED
 // - Burn set time
@@ -22,18 +22,13 @@
 // - GPS
 // - Low power
 
-// Button functions
-// RTC set
-// Rec dur/rec int
-// Stop recording
-// tool for pressing buttons?
-
 // sample rate settings
 // 100 Hz IMU/ 1 Hz pressure
 // 10 Hz IMU / 1 Hz pressure
 // 1/sec all sensors
 // 1/min all sensors
 
+#include <time.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <SdFat.h>
@@ -44,6 +39,7 @@
 
 // DEFAULT SETTINGS
 int printDiags = 1;
+int dd = 1; // dd=0 to disable display
 int recDur = 30;
 int recInt = 0;
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
@@ -73,7 +69,7 @@ int recInt = 0;
 //#define LED3  // PB22
 #define chipSelect 10
 #define vSense A4  // PA05
-#define displayPow 16
+#define displayPow 3 //PA09
 //#define vhfPow // PB03
 #define burnWire 19
 #define BUTTON1 5 //PA15
@@ -96,15 +92,6 @@ int fileCount;
 int ssCounter; // used to get different sample rates from one timer based on imu_srate
 
 char myID[33]; // ATSAM chipID
-
-// Time
-RTCZero rtc;
-volatile byte second = 0;
-volatile byte minute = 0;
-volatile byte hour = 17;
-volatile byte day = 1;
-volatile byte month = 1;
-volatile byte year = 17;
 
 //
 // SENSORS
@@ -182,48 +169,75 @@ int accel_scale = 16;
 int mode = 0; //standby = 0; running = 1
 volatile float voltage;
 
-uint32_t t, startTime, endTime;
+// Time
+RTCZero rtc;
+volatile byte second = 0;
+volatile byte minute = 0;
+volatile byte hour = 17;
+volatile byte day = 1;
+volatile byte month = 1;
+volatile byte year = 17;
+
+time_t t, startTime, endTime, burnTime;
+int burnFlag = 0;
+long burnSeconds;
 
 void setup() {
   SerialUSB.begin(115200);
 
-  readVoltage();
   pinMode(BUTTON1, INPUT_PULLUP);
   pinMode(BUTTON2, INPUT_PULLUP);
-//  pinMode(displayPow, OUTPUT);
-//  digitalWrite(displayPow, HIGH);
-
-  displayOn();
-  cDisplay();
-  display.println("Loggerhead");
-  display.println("OpenTag 2");
-  display.display();
-  delay(8000);
-  SerialUSB.println("Loggerhead OpenTag2");
-
+  pinMode(burnWire, OUTPUT);
+  digitalWrite(burnWire, LOW);
+  Wire.begin();
+  Wire.setClock(400000);  // set I2C clock to 400 kHz
+  
+  SerialUSB.println("On");
   // see if the card is present and can be initialized:
   while (!sd.begin(chipSelect, SPI_FULL_SPEED)) {
     SerialUSB.println("Card failed");
-    cDisplay();
-    display.println("Card failed");
-    display.display();
+    if(dd){
+      cDisplay();
+      display.println("Card failed");
+      display.display();
+    }
     delay(1000);
   }
   rtc.begin();
   loadScript(); // do this early to set time
-  cDisplay();
   getTime();
-  displaySettings();
-  displayClock(displayLine4);
-  display.display();
+  
+  readVoltage();
 
+  if(dd){
+    pinMode(displayPow, OUTPUT);
+    digitalWrite(displayPow, HIGH); 
+    delay(1000);
+    displayOn();
+    cDisplay();
+    display.println("Loggerhead");
+    display.println("OpenTag 2");
+    display.display();
+  }
+
+  delay(10000);
+  SerialUSB.println("Loggerhead OpenTag2");
+
+
+  
+  if(dd){
+    displaySettings();
+    displayClock(displayLine4);
+    display.display();
+  }
   getChipId();
-
-  Wire.begin();
-  Wire.setClock(400000);  // set I2C clock to 400 kHz
-
   initSensors();
   t = rtc.getEpoch();
+  if(burnFlag==2){
+    burnTime = t + burnSeconds;
+    SerialUSB.print("Burn time set");
+    SerialUSB.println(burnTime);
+  }
   startTime = t + 2;
   SerialUSB.print("Time:"); SerialUSB.println(t);
   SerialUSB.print("Start Time:"); SerialUSB.println(startTime);
@@ -234,10 +248,15 @@ void loop() {
   while(mode==0){
     t = rtc.getEpoch();
     getTime();
-    cDisplay();
-    displaySettings();
-    displayClock(displayLine4);
-    display.display();
+    checkBurn();
+    if(dd){
+      cDisplay();
+      displaySettings();
+      displayClock(displayLine4);
+      display.display();
+      delay(10);
+    }
+
     if(t >= startTime){
       endTime = startTime + recDur;
       startTime += recDur + recInt;  // this will be next start time for interval record
@@ -245,6 +264,7 @@ void loop() {
       startTimer((int) imuSrate); // start timer
       updateTemp();  // get first reading ready
       mode = 1;
+      displayOff();
     }
   }
 
@@ -268,14 +288,20 @@ void loop() {
       if(digitalRead(BUTTON1)==0){
         stopTimer();
         dataFile.close();
-        displayOn();
-        cDisplay();
-        display.print("Stopped");
-        display.display();
-        delay(60000); // if don't power off in 60s, restart
-        cDisplay();
-        display.print("Restarting");
-        display.display();
+        if(dd){
+          displayOn();
+          cDisplay();
+          display.print("Stopped");
+          display.display();
+        }
+        delay(58000); // if don't power off in 60s, restart
+        if(dd){
+          cDisplay();
+          display.print("Restarting");
+          display.display();
+          delay(2000);
+          displayOff();
+        }
         fileInit();
         startTimer((int) imuSrate); // start timer
       }
@@ -336,6 +362,7 @@ void initSensors(){
 void fileInit()
 {
    char filename[60];
+   t = rtc.getEpoch();
    getTime();
    sprintf(filename,"%02d%02d%02dT%02d%02d%02d_%s.csv", year, month, day, hour, minute, second, myID);  //filename is DDHHMM
    dataFile = sd.open(filename, O_WRITE | O_CREAT | O_APPEND);
@@ -389,6 +416,7 @@ void sampleSensors(void){  //interrupt at update_rate
 
     getTime();
     incrementTimebufpos();
+    checkBurn();
     
     calcPressTemp(); // MS58xx pressure and temperature
     incrementPTbufpos(pressure_mbar);
@@ -498,3 +526,10 @@ void file_date_time(uint16_t* date, uint16_t* time)
   *date=FAT_DATE(year + 2000,month,day);
   *time=FAT_TIME(hour,minute,second);
 }
+
+int checkBurn(){
+  if((t>=burnTime) & (burnFlag>0)){
+    digitalWrite(burnWire, HIGH);
+  }
+}
+

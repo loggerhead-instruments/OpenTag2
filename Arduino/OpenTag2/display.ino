@@ -68,3 +68,4 @@ void printDigits(int digits){
 void printZero(int val){
   if(val<10) display.print("0");
 }
+

@@ -34,10 +34,10 @@ void incrementRGBbufpos(int16_t val){
 
 
 void incrementTimebufpos(){
-    cDisplay();
-    displaySettings();
-    displayClock(displayLine4);
-    display.display();
+//    cDisplay();
+//    displaySettings();
+//    displayClock(displayLine4);
+//    display.display();
   
   timeBuffer[bufferposTime] = year;
   bufferposTime++;
