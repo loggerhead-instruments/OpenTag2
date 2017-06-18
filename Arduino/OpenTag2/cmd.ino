@@ -99,6 +99,13 @@ int ProcCmd(char *pCmd)
       break;
     } 
 
+    // disable LED
+    case ('L' + ('D'<<8)):
+    {
+      led2en = 0;
+      break;
+    }
+
       /*
       case ('S' + ('R'<<8)):
       {

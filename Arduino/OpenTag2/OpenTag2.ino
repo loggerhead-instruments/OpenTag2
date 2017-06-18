@@ -14,7 +14,6 @@
 // check if can power display off pin
 // - does it keep time when turned off---no, could use GPS module RTC
 // - LED
-// - VHF on when depth < 1 m
 // - sleep during record interval
 // - Delay start
 // - error if does not start correctly (e.g. stuck or bad Mag readings)
@@ -41,6 +40,7 @@ int printDiags = 1;
 int dd = 1; // dd=0 to disable display
 int recDur = 30;
 int recInt = 0;
+int led2en = 0; //enable green LED outside ring
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
 //
 
@@ -63,13 +63,13 @@ int recInt = 0;
 
 
 // pin assignments
-#define LED1 31 // PB23
-#define LED2 26 // PA27  //TX LED
+#define LED1 31 // PB23  //INSIDE RING
+#define LED2 26 // PA27  //OUTSIDE RING
 #define LED_RED 30 // PB22
 #define chipSelect 10
 #define vSense A4  // PA05
 #define displayPow 3 //PA09
-//#define vhfPow // PB03
+#define vhfPow 25 // PB03
 #define burnWire 19
 #define BUTTON1 5 //PA15
 #define BUTTON2 11 //PA16
@@ -186,9 +186,11 @@ void setup() {
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
   pinMode(LED_RED, OUTPUT);
+  pinMode(vhfPow, OUTPUT);
   digitalWrite(LED1, HIGH);
   digitalWrite(LED2, HIGH);
   digitalWrite(LED_RED, LOW);
+  digitalWrite(vhfPow, LOW);
   pinMode(BUTTON1, INPUT_PULLUP);
   pinMode(BUTTON2, INPUT_PULLUP);
   pinMode(burnWire, OUTPUT);
@@ -406,8 +408,7 @@ void sampleSensors(void){  //interrupt at update_rate
   }
   
   if(ssCounter>=(int)(imuSrate/sensorSrate)){
-    digitalWrite(LED1, HIGH);
-    digitalWrite(LED2, HIGH);
+    
     ssCounter = 0;
     // MS58xx pressure and temperature
     readTemp();
@@ -423,13 +424,17 @@ void sampleSensors(void){  //interrupt at update_rate
     getTime();
     incrementTimebufpos();
     checkBurn();
+
+    digitalWrite(LED1, HIGH);
+  //  if(led2en) digitalWrite(LED2, HIGH);
     
     calcPressTemp(); // MS58xx pressure and temperature
     incrementPTbufpos(pressure_mbar);
     incrementPTbufpos(temperature);
+    if(depth<1.0) digitalWrite(vhfPow, HIGH);
 
     digitalWrite(LED1, LOW);
-    digitalWrite(LED2, LOW);
+  //  digitalWrite(LED2, LOW);
   }
 }
 
@@ -539,6 +544,7 @@ void file_date_time(uint16_t* date, uint16_t* time)
 int checkBurn(){
   if((t>=burnTime) & (burnFlag>0)){
     digitalWrite(burnWire, HIGH);
+    digitalWrite(vhfPow, HIGH);
   }
 }
 

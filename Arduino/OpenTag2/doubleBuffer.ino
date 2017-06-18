@@ -118,7 +118,6 @@ void writeDateTime(){
 }
 
 void writeImu(int lineFeed){
-  digitalWrite(LED2, HIGH);
   char sensorLine[255];
   sprintf(sensorLine,",%d,%d,%d,%d,%d,%d,%d,%d,%d", accel_x, accel_y, accel_z,
     gyro_x, gyro_y, gyro_z, mag_x, mag_y, mag_z);
@@ -193,6 +192,5 @@ void writeSensors(int halfBuf){
     iRGB += 3;
     iTime += 6;
   }
-  digitalWrite(LED2, LOW);
 }
 
