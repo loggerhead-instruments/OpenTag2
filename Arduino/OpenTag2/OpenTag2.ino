@@ -451,7 +451,7 @@ void sampleSensors(void){  //interrupt at update_rate
     incrementTimebufpos();
     checkBurn();
 
-  //  digitalWrite(LED1, HIGH);
+    if(led2en) digitalWrite(LED1, HIGH);
     if(led2en) digitalWrite(LED2, HIGH);
   
     
@@ -460,7 +460,7 @@ void sampleSensors(void){  //interrupt at update_rate
     incrementPTbufpos(temperature);
     if(depth<1.0) digitalWrite(vhfPow, HIGH);
 
-  //  digitalWrite(LED1, LOW);
+    digitalWrite(LED1, LOW);
     digitalWrite(LED2, LOW);
   }
 }
