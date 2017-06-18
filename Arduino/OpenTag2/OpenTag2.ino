@@ -14,7 +14,6 @@
 // check if can power display off pin
 // - does it keep time when turned off---no, could use GPS module RTC
 // - LED
-// - Burn set time
 // - VHF on when depth < 1 m
 // - sleep during record interval
 // - Delay start
@@ -64,9 +63,9 @@ int recInt = 0;
 
 
 // pin assignments
-//#define LED1  // PB23
-//#define LED2  // PA27
-//#define LED3  // PB22
+#define LED1 31 // PB23
+#define LED2 26 // PA27  //TX LED
+#define LED_RED 30 // PB22
 #define chipSelect 10
 #define vSense A4  // PA05
 #define displayPow 3 //PA09
@@ -184,7 +183,12 @@ long burnSeconds;
 
 void setup() {
   SerialUSB.begin(115200);
-
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED_RED, OUTPUT);
+  digitalWrite(LED1, HIGH);
+  digitalWrite(LED2, HIGH);
+  digitalWrite(LED_RED, LOW);
   pinMode(BUTTON1, INPUT_PULLUP);
   pinMode(BUTTON2, INPUT_PULLUP);
   pinMode(burnWire, OUTPUT);
@@ -199,10 +203,12 @@ void setup() {
     if(dd){
       cDisplay();
       display.println("Card failed");
+      digitalWrite(LED_RED, HIGH);
       display.display();
     }
     delay(1000);
   }
+  digitalWrite(LED_RED, LOW);
   rtc.begin();
   loadScript(); // do this early to set time
   getTime();
@@ -286,6 +292,7 @@ void loop() {
     if(digitalRead(BUTTON1)==0){
       delay(10); // simple deBounce
       if(digitalRead(BUTTON1)==0){
+        digitalWrite(LED_RED, HIGH);
         stopTimer();
         dataFile.close();
         if(dd){
@@ -304,16 +311,13 @@ void loop() {
         }
         fileInit();
         startTimer((int) imuSrate); // start timer
+        digitalWrite(LED_RED, LOW);
       }
     }
   }
 }
 
 void initSensors(){
-//  pinMode(LED1, OUTPUT);
-//  pinMode(LED2, OUTPUT);
-//  pinMode(LED3, OUTPUT);
-
   // Pressure/Temperature
   pressInit();
   updatePress();
@@ -402,6 +406,8 @@ void sampleSensors(void){  //interrupt at update_rate
   }
   
   if(ssCounter>=(int)(imuSrate/sensorSrate)){
+    digitalWrite(LED1, HIGH);
+    digitalWrite(LED2, HIGH);
     ssCounter = 0;
     // MS58xx pressure and temperature
     readTemp();
@@ -421,6 +427,9 @@ void sampleSensors(void){  //interrupt at update_rate
     calcPressTemp(); // MS58xx pressure and temperature
     incrementPTbufpos(pressure_mbar);
     incrementPTbufpos(temperature);
+
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
   }
 }
 
