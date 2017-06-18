@@ -18,8 +18,7 @@ int ProcCmd(char *pCmd)
   pCV = (short*)pCmd;
 
   n = strlen(pCmd);
-  if(n<2) 
-          return TRUE;
+  if(n<2) return TRUE;
 
   switch(*pCV)
   {                     

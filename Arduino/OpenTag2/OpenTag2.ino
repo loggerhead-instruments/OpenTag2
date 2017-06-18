@@ -10,26 +10,38 @@
 // RGB light
 // GPS
 
-// - Display
-// - RTC set from script
-// - RTC set from buttons
+// - RTC set from buttons?
 // - does it keep time when turned off?
 // - LED
 // - Burn set time
 // - VHF on when depth < 1 m
-// - set record duration and record interval
 // - sleep during record interval
 // - Low power
 // - Delay start
-// - store voltage
+// - store voltage/display voltage
 // - stop record
 // - error if does not start correctly (e.g. stuck or bad Mag readings)
 // - GPS
+
+// Button functions
+// RTC set
+// Rec dur/rec int
+// Stop recording
+// tool for pressing buttons?
+
+// sample rate settings
+// 100 Hz IMU/ 1 Hz pressure
+// 10 Hz IMU / 1 Hz pressure
+// 1/sec all sensors
+// 1/min all sensors
 
 #include <Wire.h>
 #include <SPI.h>
 #include <SdFat.h>
 #include <RTCZero.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Adafruit_FeatherOLED.h>
 
 // DEFAULT SETTINGS
 int printDiags = 1;
@@ -62,9 +74,16 @@ int recInt = 0;
 //#define LED3  // PB22
 #define chipSelect 10
 #define vSense 18  // PA05
+#define displayPow 16
 
 #define CPU_HZ 48000000
 #define TIMER_PRESCALER_DIV 1024
+
+#define displayLine1 0
+#define displayBLine2 8
+#define displayLine3 16
+#define displayLine4 24
+Adafruit_FeatherOLED display = Adafruit_FeatherOLED();
 
 // SD file system
 SdFat sd;
@@ -163,24 +182,39 @@ uint32_t t, startTime, endTime;
 
 void setup() {
   SerialUSB.begin(115200);
+  
+//  pinMode(displayPow, OUTPUT);
+//  digitalWrite(displayPow, HIGH);
+
+  displayOn();
+  cDisplay();
+  display.print("Loggerhead");
+  display.println("  OpenTag 2");
+  display.display();
   delay(5000);
   SerialUSB.println("Loggerhead OpenTag2");
-  delay(1000);
 
   // see if the card is present and can be initialized:
   while (!sd.begin(chipSelect, SPI_FULL_SPEED)) {
     SerialUSB.println("Card failed");
+    cDisplay();
+    display.println("Card failed");
+    display.display();
     delay(1000);
   }
   rtc.begin();
   loadScript(); // do this early to set time
+  cDisplay();
+  displayClock(displayLine4);
+  display.display();
+
 
   delay(6000);
 
   getChipId();
+
   Wire.begin();
   Wire.setClock(400000);  // set I2C clock to 400 kHz
-
 
   initSensors();
   t = rtc.getEpoch();
@@ -193,6 +227,10 @@ void loop() {
   // Waiting: check if time to start
   while(mode==0){
     t = rtc.getEpoch();
+    getTime();
+    cDisplay();
+    displayClock(displayLine4);
+    display.display();
     if(t >= startTime){
       endTime = startTime + recDur;
       startTime += recDur + recInt;  // this will be next start time for interval record
