@@ -12,10 +12,9 @@
 
 // Change R11 to 50 kOhm give 0.667 voltage divider
 // - does it keep time when turned off---no, could use GPS module RTC
-// - sleep during record interval with red led flash
 // - error if does not start correctly (e.g. stuck or bad Mag readings); or show readings during start
 // - GPS
-// - Low power
+// - Low power (e.g. disable USB; check pin direction)
 
 // sample rate settings
 // 100 Hz IMU/ 1 Hz pressure
@@ -256,6 +255,8 @@ void setup() {
   if(startTime==0) startTime = t + 2; // wait a couple of seconds if no delay start set from script
   SerialUSB.print("Time:"); SerialUSB.println(t);
   SerialUSB.print("Start Time:"); SerialUSB.println(startTime);
+  digitalWrite(LED1, LOW);
+  digitalWrite(LED2, LOW);
 }
 
 void loop() {
@@ -265,10 +266,10 @@ void loop() {
     getTime();
     checkBurn();
 
-    // sleep if more than 15 seconds
-    if(startTime - t > 15){
+    // sleep if more than 10 seconds
+    if(startTime - t > 10){
       displayOff();
-      int alarmSeconds = second + 15;
+      int alarmSeconds = second + 10;
       if(alarmSeconds>60) alarmSeconds-=60;
       rtc.setAlarmSeconds(alarmSeconds);
       rtc.enableAlarm(rtc.MATCH_SS);
