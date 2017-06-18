@@ -73,6 +73,19 @@ int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from sc
 #define BUTTON1 5 //PA15
 #define BUTTON2 11 //PA16
 
+//From variant.cpp
+//pin19 PB10 = digital pin 23
+//pin20 PB11 = digital pin 24
+//pin21 PA12 = digital pin 21
+//pin22 PA13 = digital pin 38
+//pin37 PB22 = digital pin 30
+//pin38 PB23 = digital pin 31
+//pin39 PA27 = digital pin 26
+//pin41 PA28 = digital pin 27
+//pin45 PA30 x not defined, used for SWD programming/debug
+//pin46 PA31 x not defined, used for SWD programming/debug
+//pin48 PB3 = digital pin 25
+
 #define CPU_HZ 48000000
 #define TIMER_PRESCALER_DIV 1024
 
@@ -194,28 +207,23 @@ void setup() {
   pinMode(BUTTON2, INPUT_PULLUP);
   pinMode(burnWire, OUTPUT);
   digitalWrite(burnWire, LOW);
+
   Wire.begin();
   Wire.setClock(400000);  // set I2C clock to 400 kHz
   
   SerialUSB.println("On");
+  
   // see if the card is present and can be initialized:
   while (!sd.begin(chipSelect, SPI_FULL_SPEED)) {
     SerialUSB.println("Card failed");
-    if(dd){
-      cDisplay();
-      display.println("Card failed");
-      digitalWrite(LED_RED, HIGH);
-      display.display();
-    }
-    delay(1000);
+    digitalWrite(LED_RED, HIGH);
+    delay(800);
+    digitalWrite(LED_RED, LOW);
+    delay(200);
   }
-  digitalWrite(LED_RED, LOW);
   rtc.begin();
   loadScript(); // do this early to set time
-  getTime();
   
-  readVoltage();
-
   if(dd){
     pinMode(displayPow, OUTPUT);
     digitalWrite(displayPow, HIGH); 
@@ -227,12 +235,14 @@ void setup() {
     display.display();
   }
 
-  delay(10000);
+  getTime();
+  readVoltage();
+
+  delay(8000);
   SerialUSB.println("Loggerhead OpenTag2");
 
-
-  
   if(dd){
+    cDisplay();
     displaySettings();
     displayClock(displayLine4);
     display.display();
