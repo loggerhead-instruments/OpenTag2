@@ -35,6 +35,7 @@ void incrementRGBbufpos(int16_t val){
 
 void incrementTimebufpos(){
     cDisplay();
+    displaySettings();
     displayClock(displayLine4);
     display.display();
   

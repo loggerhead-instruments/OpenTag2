@@ -80,9 +80,9 @@ int recInt = 0;
 #define TIMER_PRESCALER_DIV 1024
 
 #define displayLine1 0
-#define displayBLine2 8
+#define displayLine2 8
 #define displayLine3 16
-#define displayLine4 24
+#define displayLine4 25
 Adafruit_FeatherOLED display = Adafruit_FeatherOLED();
 
 // SD file system
@@ -177,6 +177,7 @@ float gyro_temp;
 int accel_scale = 16;
 
 int mode = 0; //standby = 0; running = 1
+volatile float voltage;
 
 uint32_t t, startTime, endTime;
 
@@ -188,10 +189,10 @@ void setup() {
 
   displayOn();
   cDisplay();
-  display.print("Loggerhead");
-  display.println("  OpenTag 2");
+  display.println("Loggerhead");
+  display.println("OpenTag 2");
   display.display();
-  delay(5000);
+  delay(8000);
   SerialUSB.println("Loggerhead OpenTag2");
 
   // see if the card is present and can be initialized:
@@ -205,11 +206,10 @@ void setup() {
   rtc.begin();
   loadScript(); // do this early to set time
   cDisplay();
+  getTime();
+  displaySettings();
   displayClock(displayLine4);
   display.display();
-
-
-  delay(6000);
 
   getChipId();
 
@@ -229,6 +229,7 @@ void loop() {
     t = rtc.getEpoch();
     getTime();
     cDisplay();
+    displaySettings();
     displayClock(displayLine4);
     display.display();
     if(t >= startTime){
@@ -386,11 +387,10 @@ void calcImu(){
   mag_z = (int16_t)  (((int16_t)imuTempBuffer[18] << 8) | imuTempBuffer[19]); 
 }
 
-float readVoltage(){
+void readVoltage(){
   float vDivider = 0.8333;
   float vReg = 3.3;
   float voltage = (float) analogRead(vSense) * vReg / (vDivider * 1024.0);
-  return voltage;
 }
 
 

@@ -15,22 +15,31 @@ void displayOff(){
 }
 
 void cDisplay(){
-    display.clearDisplay();
-    display.setTextColor(WHITE);
-    display.setTextSize(1);
-    display.setCursor(0,0);
+  display.clearDisplay();
+  displayBattery();
+  display.setTextColor(WHITE);
+  display.setTextSize(1);
+  display.setCursor(0,0);
 }
 
 void displaySettings(){
   display.setTextSize(1);
   display.setTextColor(WHITE);
-  display.setCursor(0, 18);
+  display.setCursor(0, displayLine1);
+  if(mode==0) display.print("Standby");
+  if(mode==1) display.print("Running");
+  display.setCursor(0, displayLine2);
   display.print("Rec:");
   display.print(recDur);
   display.println("s");
   display.print("Sleep:");
   display.print(recInt);
   display.println("s");
+}
+
+void displayBattery(){
+  display.setBattery(voltage);
+  display.renderBattery();
 }
 
 void displayClock(int loc){
