@@ -13,9 +13,8 @@
 // Change R11 to 50 kOhm give 0.667 voltage divider
 // check if can power display off pin
 // - does it keep time when turned off---no, could use GPS module RTC
-// - LED
 // - sleep during record interval
-// - Delay start
+// - Delay start; sleep with red led flash
 // - error if does not start correctly (e.g. stuck or bad Mag readings)
 // - GPS
 // - Low power
@@ -40,7 +39,7 @@ int printDiags = 1;
 int dd = 1; // dd=0 to disable display
 int recDur = 30;
 int recInt = 0;
-int led2en = 0; //enable green LED outside ring
+int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
 //
 
@@ -425,16 +424,17 @@ void sampleSensors(void){  //interrupt at update_rate
     incrementTimebufpos();
     checkBurn();
 
-    digitalWrite(LED1, HIGH);
-  //  if(led2en) digitalWrite(LED2, HIGH);
+  //  digitalWrite(LED1, HIGH);
+    if(led2en) digitalWrite(LED2, HIGH);
+  
     
     calcPressTemp(); // MS58xx pressure and temperature
     incrementPTbufpos(pressure_mbar);
     incrementPTbufpos(temperature);
     if(depth<1.0) digitalWrite(vhfPow, HIGH);
 
-    digitalWrite(LED1, LOW);
-  //  digitalWrite(LED2, LOW);
+  //  digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
   }
 }
 
