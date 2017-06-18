@@ -4,7 +4,6 @@
  */
 
 void displayOn(){
-  SerialUSB.println("Display on");
   //display.ssd1306_command(SSD1306_DISPLAYON);
   display.init();
   display.setBatteryVisible(true);

@@ -13,7 +13,7 @@
 // Change R11 to 50 kOhm give 0.667 voltage divider
 // - does it keep time when turned off---no, could use GPS module RTC
 // - sleep during record interval with red led flash
-// - error if does not start correctly (e.g. stuck or bad Mag readings)
+// - error if does not start correctly (e.g. stuck or bad Mag readings); or show readings during start
 // - GPS
 // - Low power
 
@@ -264,13 +264,28 @@ void loop() {
     t = rtc.getEpoch();
     getTime();
     checkBurn();
-    if(dd){
-      cDisplay();
-      displaySettings();
-      displayClock(displayLine4);
-      display.display();
+
+    // sleep if more than 15 seconds
+    if(startTime - t > 15){
+      displayOff();
+      int alarmSeconds = second + 15;
+      if(alarmSeconds>60) alarmSeconds-=60;
+      rtc.setAlarmSeconds(alarmSeconds);
+      rtc.enableAlarm(rtc.MATCH_SS);
+      rtc.attachInterrupt(alarmMatch);
+      rtc.standbyMode();
       delay(10);
+      digitalWrite(LED_RED, LOW);
     }
+//    else{ // turn display on 15 s before starting record
+//      if(dd){
+//        cDisplay();
+//        displaySettings();
+//        displayClock(displayLine4);
+//        display.display();
+//        delay(10);
+//      }
+//    }
 
     if(t >= startTime){
       endTime = startTime + recDur;
@@ -324,6 +339,10 @@ void loop() {
       }
     }
   }
+}
+
+void alarmMatch(){
+  digitalWrite(LED_RED, HIGH);
 }
 
 void initSensors(){
