@@ -72,6 +72,31 @@ int ProcCmd(char *pCmd)
          break;
       }
 
+      
+      case ('S' + ('T'<<8)):
+      {
+        //start time
+         sscanf(&pCmd[3],"%d-%d-%d %d:%d:%d",&tyear,&tmonth,&tday,&thour,&tmin,&tsec);
+         struct tm start;
+         start.tm_sec = tsec;
+         start.tm_min = tmin;
+         start.tm_hour = thour;
+         start.tm_mday = tday;
+         start.tm_mon = tmonth - 1; // months since January
+         start.tm_year = tyear + 100; // years since 1900     
+         startTime = mktime(&start);
+
+         SerialUSB.print("Start Time:");
+         SerialUSB.print(tyear);SerialUSB.print("-");
+         SerialUSB.print(tmonth);SerialUSB.print("-");
+         SerialUSB.print(tday);SerialUSB.print("T");
+         SerialUSB.print(thour);SerialUSB.print(":");
+         SerialUSB.print(tmin);SerialUSB.print(":");
+         SerialUSB.println(tsec);
+         SerialUSB.println(startTime);
+         break;
+      } 
+      
     // Burn Minutes (burn set number of minutes after start)
     case ('B' + ('M'<<8)):
     {
@@ -106,24 +131,8 @@ int ProcCmd(char *pCmd)
       break;
     }
 
-      /*
-      case ('S' + ('R'<<8)):
-      {
-        //start time
-         sscanf(&pCmd[3],"%d-%d-%d %d:%d:%d",&tyear,&tmonth,&tday,&thour,&tmin,&tsec);
-         tmElements_t NewTime;
-         NewTime.Second = tsec;
-         NewTime.Minute = tmin;
-         NewTime.Hour = thour;
-         NewTime.Day = tday;
-         NewTime.Month = tmonth;
-         NewTime.Year = tyear-2000;
-         startTime = makeTime(NewTime);
-         SerialUSBprint("Start Record Set: ");
-         SerialUSBprintln(startTime);
-         break;
-      } 
-      */
+
+     
   } 
   return TRUE;
 }

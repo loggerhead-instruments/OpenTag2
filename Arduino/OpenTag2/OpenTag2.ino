@@ -11,10 +11,8 @@
 // GPS
 
 // Change R11 to 50 kOhm give 0.667 voltage divider
-// check if can power display off pin
 // - does it keep time when turned off---no, could use GPS module RTC
-// - sleep during record interval
-// - Delay start; sleep with red led flash
+// - sleep during record interval with red led flash
 // - error if does not start correctly (e.g. stuck or bad Mag readings)
 // - GPS
 // - Low power
@@ -255,7 +253,7 @@ void setup() {
     SerialUSB.print("Burn time set");
     SerialUSB.println(burnTime);
   }
-  startTime = t + 2;
+  if(startTime==0) startTime = t + 2; // wait a couple of seconds if no delay start set from script
   SerialUSB.print("Time:"); SerialUSB.println(t);
   SerialUSB.print("Start Time:"); SerialUSB.println(startTime);
 }
