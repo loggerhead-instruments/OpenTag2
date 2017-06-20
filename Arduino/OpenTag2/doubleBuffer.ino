@@ -185,6 +185,12 @@ void writeSensors(int halfBuf){
     sensorLine += ":"; 
     if(timeBuffer[iTime+5] < 10) sensorLine += "0";
     sensorLine += timeBuffer[iTime+5];
+    sensorLine += "Z";
+
+    sensorLine += ","; sensorLine += latitude;
+    sensorLine += ","; sensorLine += latHem;
+    sensorLine += ","; sensorLine += longitude;
+    sensorLine += ","; sensorLine += lonHem;
     
     dataFile.println(sensorLine);
     SerialUSB.println(sensorLine);

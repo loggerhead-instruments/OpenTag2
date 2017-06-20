@@ -13,9 +13,8 @@
 // Change R11 to 50 kOhm give 0.667 voltage divider
 // - does it keep time when turned off---no, could use GPS module RTC
 // - error if does not start correctly (e.g. stuck or bad Mag readings); or show readings during start
-// - show startTime on screen
 // - GPS
-// - Low power (e.g. disable USB; check pin direction)
+// - Low power (e.g. disable USB; check pin direction; power down gyro, screen)
 
 // sample rate settings
 // 100 Hz IMU/ 1 Hz pressure
@@ -32,13 +31,20 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_FeatherOLED.h>
 
-// DEFAULT SETTINGS
+//
+// DEV SETTINGS
+//
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
 int recDur = 30;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
+int skipGPS = 0;
+int logGPS = 0; // if not logging, turn off GPS after get time
+long gpsTimeOutThreshold = 60 * 15; //if longer then 15 minutes at start without GPS time, just start
+#define HWSERIAL Serial1
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
+//
 //
 
 #ifdef MS5837_30bar
@@ -60,18 +66,20 @@ int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from sc
 
 
 // pin assignments
-#define LED1 31 // PB23  //INSIDE RING
-#define LED2 26 // PA27  //OUTSIDE RING
-#define LED_RED 30 // PB22
-#define chipSelect 10
-#define vSense A4  // PA05
-#define displayPow 3 //PA09
-#define vhfPow 25 // PB03
-#define burnWire 19
-#define BUTTON1 5 //PA15
-#define BUTTON2 11 //PA16
+#define LED1        31  // PB23  //INSIDE RING
+#define LED2        26  // PA27  //OUTSIDE RING
+#define LED_RED     30  // PB22
+#define chipSelect  10
+#define vSense      A4  // PA05
+#define displayPow  3   //PA09
+#define vhfPow      25  // PB03
+#define burnWire    19
+#define BUTTON1     5   //PA15
+#define BUTTON2     11  //PA16
+#define GPS_EN      6   // PA20 
 
 //From variant.cpp
+// C:\Users\David Mann\AppData\Local\Arduino15\packages\arduino\hardware\samd\1.6.15\variants\arduino_zero
 //pin19 PB10 = digital pin 23
 //pin20 PB11 = digital pin 24
 //pin21 PA12 = digital pin 21
@@ -175,6 +183,15 @@ int16_t gyro_z;
 float gyro_temp;
 int accel_scale = 16;
 
+
+// GPS
+double latitude, longitude;
+char latHem, lonHem;
+int goodGPS = 0;
+long gpsTimeout; //increments every GPRMC line read; about 1 per second
+int gpsYear = 0, gpsMonth = 1, gpsDay = 1, gpsHour = 0, gpsMinute = 0, gpsSecond = 0;
+
+// System Modes and Status
 int mode = 0; //standby = 0; running = 1
 volatile float voltage;
 
@@ -193,6 +210,7 @@ long burnSeconds;
 
 void setup() {
   SerialUSB.begin(115200);
+  HWSERIAL.begin(9600);
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
   pinMode(LED_RED, OUTPUT);
@@ -205,6 +223,8 @@ void setup() {
   pinMode(BUTTON2, INPUT_PULLUP);
   pinMode(burnWire, OUTPUT);
   digitalWrite(burnWire, LOW);
+  pinMode(displayPow, OUTPUT);
+  digitalWrite(displayPow, HIGH); 
 
   Wire.begin();
   Wire.setClock(400000);  // set I2C clock to 400 kHz
@@ -215,16 +235,14 @@ void setup() {
   while (!sd.begin(chipSelect, SPI_FULL_SPEED)) {
     SerialUSB.println("Card failed");
     digitalWrite(LED_RED, HIGH);
-    delay(800);
-    digitalWrite(LED_RED, LOW);
     delay(200);
+    digitalWrite(LED_RED, LOW);
+    delay(100);
   }
   rtc.begin();
   loadScript(); // do this early to set time
   
   if(dd){
-    pinMode(displayPow, OUTPUT);
-    digitalWrite(displayPow, HIGH); 
     delay(1000);
     displayOn();
     cDisplay();
@@ -233,6 +251,67 @@ void setup() {
     display.display();
   }
 
+
+// GPS configuration
+  gpsTimeout = 0;
+  if(!skipGPS){
+   gpsOn();
+   delay(1000);
+   gpsSpewOff();
+   SerialUSB.println();
+   SerialUSB.println("GPS Status");
+   waitForGPS();
+   gpsStatusLogger();
+
+   // if any data in GPSlogger, download it to microSD
+   SerialUSB.println();
+   SerialUSB.println("Dump GPS");
+   cDisplay();
+   display.println("Download");
+   display.println("GPS Log");
+   display.display();
+   if(gpsDumpLogger()==1){
+     // erase data if download was good
+     SerialUSB.println();
+     SerialUSB.println("Erase GPS");
+     gpsEraseLogger();
+   }
+
+  if(logGPS){
+   // start GPS logger
+   SerialUSB.println();
+   SerialUSB.println("Start logging");
+   gpsStartLogger();
+   SerialUSB.println();
+   SerialUSB.println("GPS Status");
+   gpsStatusLogger();
+   SerialUSB.println();
+  }
+   gpsSpewOn();
+
+   
+   while(!goodGPS){
+     byte incomingByte;
+     digitalWrite(LED1, LOW);
+     if(gpsTimeout >= gpsTimeOutThreshold) break;
+     while (HWSERIAL.available() > 0) {    
+      digitalWrite(LED1, HIGH);
+      incomingByte = HWSERIAL.read();
+      SerialUSB.write(incomingByte);
+      gps(incomingByte);  // parse incoming GPS data
+      }
+    }
+    if(gpsTimeout <  gpsTimeOutThreshold){
+      rtc.setTime(gpsHour, gpsMinute, gpsSecond);
+      rtc.setDate(gpsDay, gpsMonth, gpsYear);
+      displayGPS();
+    } 
+    gpsSpewOff();
+    waitForGPS();
+  } // skip GPS
+  
+  if(!logGPS) gpsOff();
+  
   getTime();
   readVoltage();
 
@@ -404,7 +483,7 @@ void fileInit()
     dataFile = sd.open(filename, O_WRITE | O_CREAT | O_EXCL);
     
    }
-   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,red,green,blue,pressure(mBar),temperature,datetime");
+   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,red,green,blue,pressure(mBar),temperature,datetime,latitude,latHem,longitude,lonHem");
    SdFile::dateTimeCallback(file_date_time);
   SerialUSB.println(filename);
 }
@@ -480,7 +559,7 @@ void calcImu(){
 }
 
 void readVoltage(){
-  float vDivider = 0.6667;
+  float vDivider = 100.0/133.0;
   float vReg = 3.3;
   voltage = (float) analogRead(vSense) * vReg / (vDivider * 1024.0);
 }
@@ -573,5 +652,14 @@ int checkBurn(){
     digitalWrite(burnWire, HIGH);
     digitalWrite(vhfPow, HIGH);
   }
+}
+
+void gpsOn(){
+  pinMode(GPS_EN, OUTPUT);
+  digitalWrite(GPS_EN, HIGH);
+}
+
+void gpsOff(){
+  digitalWrite(GPS_EN, LOW);
 }
 
