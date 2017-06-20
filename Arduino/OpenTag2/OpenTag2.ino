@@ -10,10 +10,8 @@
 // RGB light
 // GPS
 
-// Change R11 to 50 kOhm give 0.667 voltage divider
-// - does it keep time when turned off---no, could use GPS module RTC
 // - error if does not start correctly (e.g. stuck or bad Mag readings); or show readings during start
-// - GPS
+// - calculate in correct units as option; calculate pitch, roll, yaw as option
 // - Low power (e.g. disable USB; check pin direction; power down gyro, screen)
 
 // sample rate settings
@@ -288,7 +286,9 @@ void setup() {
    SerialUSB.println();
   }
    gpsSpewOn();
-
+   cDisplay();
+   display.print("GPS Fix");
+   display.display();
    
    while(!goodGPS){
      byte incomingByte;
@@ -305,6 +305,7 @@ void setup() {
       rtc.setTime(gpsHour, gpsMinute, gpsSecond);
       rtc.setDate(gpsDay, gpsMonth, gpsYear);
       displayGPS();
+      display.display();
     } 
     gpsSpewOff();
     waitForGPS();
@@ -326,7 +327,7 @@ void setup() {
     SerialUSB.print("Burn time set");
     SerialUSB.println(burnTime);
   }
-  if(startTime==0) startTime = t + 2; // wait a couple of seconds if no delay start set from script
+  if(startTime==0) startTime = t + 10; // wait a couple of seconds if no delay start set from script
   SerialUSB.print("Time:"); SerialUSB.println(t);
   SerialUSB.print("Start Time:"); SerialUSB.println(startTime);
   digitalWrite(LED1, LOW);
@@ -354,7 +355,7 @@ void loop() {
 
     // sleep if more than 10 seconds
     if(startTime - t > 10){
-      displayOff();
+      //displayOff();
       int alarmSeconds = second + 10;
       if(alarmSeconds>60) alarmSeconds-=60;
       rtc.setAlarmSeconds(alarmSeconds);
@@ -373,13 +374,23 @@ void loop() {
       startTimer((int) imuSrate); // start timer
       updateTemp();  // get first reading ready
       mode = 1;
-      displayOff();
+      cDisplay();
+      display.display();
+      //displayOff();
     }
   }
 
   // Recording: check if time to end
   while(mode==1){
     t = rtc.getEpoch();
+//    if (logGPS & (HWSERIAL.available() > 0)) {    
+//      gps(HWSERIAL.read()); // parse incoming GPS data stream
+//    }
+//    if (goodGPS) {
+//      goodGPS = 0;
+//      cDisplay();
+//      displayGPS();
+//    }
     writeData();
     if(t >= endTime){
       dataFile.close(); // close file
@@ -501,7 +512,6 @@ void sampleSensors(void){  //interrupt at update_rate
   ssCounter++;
   
   readImu();
-  //readCompass();
   calcImu();
   incrementIMU();
 
@@ -513,7 +523,6 @@ void sampleSensors(void){  //interrupt at update_rate
   }
   
   if(ssCounter>=(int)(imuSrate/sensorSrate)){
-    
     ssCounter = 0;
     // MS58xx pressure and temperature
     readTemp();
@@ -533,7 +542,6 @@ void sampleSensors(void){  //interrupt at update_rate
     if(led2en) digitalWrite(LED1, HIGH);
     if(led2en) digitalWrite(LED2, HIGH);
   
-    
     calcPressTemp(); // MS58xx pressure and temperature
     incrementPTbufpos(pressure_mbar);
     incrementPTbufpos(temperature);

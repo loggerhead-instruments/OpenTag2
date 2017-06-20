@@ -118,9 +118,7 @@ int gps(byte incomingByte){
            SerialUSB.print("Lat:"); SerialUSB.println(latitude);
            SerialUSB.print("Lon:"); SerialUSB.println(longitude);
            goodGPS = 1;
-
         }
-        displayGPS();
       }
     }
     // start new message here
@@ -204,7 +202,10 @@ int gpsDumpLogger(){
         SerialUSB.write(incomingByte);
         logFile.write(incomingByte);
     }
-    if(gpsTimeout >= gpsTimeOutThreshold) return 0;
+    if(gpsTimeout >= gpsTimeOutThreshold) {
+      logFile.close();
+      return 0;
+    }
    }
       logFile.close();
    }

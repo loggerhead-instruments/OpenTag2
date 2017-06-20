@@ -73,8 +73,6 @@ void printZero(int val){
 }
 
 void displayGPS(){
-      cDisplay();
-      display.print("GPS Fix");
       display.setCursor(0, displayLine2);
       display.print(gpsYear); display.print("-");
       display.print(gpsMonth); display.print("-");
@@ -85,9 +83,8 @@ void displayGPS(){
       display.print("Lat:");
       display.print(latitude); 
       display.println(latHem);
-      display.print(" Lon:");
+      display.print("Lon:");
       display.print(longitude);
       display.print(lonHem);
-      display.display();
 }
 

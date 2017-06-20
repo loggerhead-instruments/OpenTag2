@@ -33,12 +33,7 @@ void incrementRGBbufpos(int16_t val){
 }
 
 
-void incrementTimebufpos(){
-//    cDisplay();
-//    displaySettings();
-//    displayClock(displayLine4);
-//    display.display();
-  
+void incrementTimebufpos(){  
   timeBuffer[bufferposTime] = year;
   bufferposTime++;
   timeBuffer[bufferposTime] = month;
@@ -85,14 +80,20 @@ void incrementIMU(){
 
   if(bufferposIMU==IMUBUFFERSIZE)
   {
-    if(time2writeIMU!=0) SerialUSB.println("overflow");
+    if(time2writeIMU==2) {
+      SerialUSB.println("overflow");
+      digitalWrite(LED_RED, HIGH);
+    }
     bufferposIMU = 0;
-    time2writeIMU= 2;  // set flag to write second half
+    time2writeIMU = 2;  // set flag to write second half
     firstwrittenIMU = 0; 
   }
   if((bufferposIMU>=halfbufIMU) & !firstwrittenIMU)  //at end of first buffer
   {
-    if(time2writeIMU!=0) SerialUSB.println("overflow");
+    if(time2writeIMU==1) {
+      SerialUSB.println("overflow");
+      digitalWrite(LED_RED, HIGH);
+    }
     time2writeIMU = 1; 
     firstwrittenIMU = 1;  //flag to prevent first half from being written more than once; reset when reach end of double buffer
   }
@@ -131,6 +132,7 @@ void writeSensors(int halfBuf){
 //  SerialUSB.println(halfBuf);
   String sensorLine; // text to write to file
   int iPressure, iRGB, iImu, iTime, iStart, iEnd; //index into buffer
+  digitalWrite(LED_RED, LOW); // clear overflow flag
   time2writeIMU = 0;
   if(halfBuf==1) {
     iStart = halfbufTime;
@@ -187,10 +189,10 @@ void writeSensors(int halfBuf){
     sensorLine += timeBuffer[iTime+5];
     sensorLine += "Z";
 
-    sensorLine += ","; sensorLine += latitude;
-    sensorLine += ","; sensorLine += latHem;
-    sensorLine += ","; sensorLine += longitude;
-    sensorLine += ","; sensorLine += lonHem;
+//    sensorLine += ","; sensorLine += latitude;
+//    sensorLine += ","; sensorLine += latHem;
+//    sensorLine += ","; sensorLine += longitude;
+//    sensorLine += ","; sensorLine += lonHem;
     
     dataFile.println(sensorLine);
     SerialUSB.println(sensorLine);
