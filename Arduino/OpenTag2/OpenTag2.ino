@@ -37,7 +37,7 @@
 //
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
-int recDur = 30;
+int recDur = 60;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
 int skipGPS = 0;
@@ -353,6 +353,11 @@ void setup() {
       display.display();
       delay(500);
   }
+
+  cDisplay();
+  display.print("Display Off");
+  display.display();
+  delay(1000);
 }
 
 void loop() {
@@ -382,10 +387,8 @@ void loop() {
       fileInit();
       updateTemp();  // get first reading ready
       mode = 1;
-//      cDisplay();
-//      display.display();
       startTimer((int) imuSrate); // start timer
-      //displayOff();
+      displayOff();
     }
   } // mode = 0
 
@@ -470,11 +473,14 @@ void initSensors(){
   SerialUSB.print(" depth:"); SerialUSB.print(depth);
   SerialUSB.print(" temp:"); SerialUSB.println(temperature);
 
+  cDisplay();
+  display.println();
   display.print("Press:"); display.println(pressure_mbar);
-  display.print("Depth:"); display.print(depth);
+  display.print("Depth:"); display.println(depth);
   display.print("Temp:"); display.println(temperature);
+  display.display();
 
-  delay(1000);
+  delay(6000);
   
   // IMU
   SerialUSB.println(mpuInit(1));
@@ -495,7 +501,7 @@ void initSensors(){
     SerialUSB.print("FIFO pts:"); SerialUSB.println(getImuFifo()); //check FIFO is working
 
     cDisplay();
-    display.println(" X   Y   Z");
+    display.println("  X   Y   Z");
     display.print("A:");
     display.print(accel_x); display.print(" ");
     display.print(accel_y); display.print(" ");
