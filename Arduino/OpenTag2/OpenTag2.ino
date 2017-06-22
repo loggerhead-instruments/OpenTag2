@@ -518,6 +518,14 @@ void initSensors(){
     display.print(mag_z);
     display.display();
     delay(200);
+
+    if((mag_x==0) & (mag_y==0) & (mag_z==0)){
+      cDisplay();
+      display.println("IMU: Fail");
+      display.print("Restart tag");
+      display.display();
+      delay(20000);
+    }
   }
   
   // RGB
