@@ -520,10 +520,12 @@ void initSensors(){
     delay(200);
 
     if((mag_x==0) & (mag_y==0) & (mag_z==0)){
+      delay(5000);
       cDisplay();
       display.println("IMU: Fail");
       display.print("Restart tag");
       display.display();
+      mpuInit(1); // try init again
       delay(20000);
     }
   }
