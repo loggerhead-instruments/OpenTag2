@@ -484,6 +484,8 @@ void initSensors(){
   
   // IMU
   SerialUSB.println(mpuInit(1));
+  readImu(); //first couple of readings can be 0
+  readImu();
   for(int i=0; i<100; i++){
     readImu();
     calcImu();
