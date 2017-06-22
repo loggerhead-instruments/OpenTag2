@@ -131,6 +131,12 @@ int ProcCmd(char *pCmd)
       break;
     }
 
+    // disable GPS
+    case ('G' + ('D'<<8)):
+    {
+      skipGPS = 1;
+      break;
+    }
 
      
   } 
