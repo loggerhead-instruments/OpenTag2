@@ -189,13 +189,12 @@ void writeSensors(int halfBuf){
     sensorLine += timeBuffer[iTime+5];
     sensorLine += "Z";
 
-//    sensorLine += ","; sensorLine += latitude;
-//    sensorLine += ","; sensorLine += latHem;
-//    sensorLine += ","; sensorLine += longitude;
-//    sensorLine += ","; sensorLine += lonHem;
+    sensorLine += ","; sensorLine += latitude;
+    sensorLine += ","; sensorLine += latHem;
+    sensorLine += ","; sensorLine += longitude;
+    sensorLine += ","; sensorLine += lonHem;
     
     dataFile.println(sensorLine);
-    SerialUSB.println(sensorLine);
     iPressure += 2;
     iRGB += 3;
     iTime += 6;

@@ -10,8 +10,11 @@
 // RGB light
 // GPS
 
+// -ADD TIMEOUT TO WHILE hwserial AVAILABLE IN MAIN LOOP
+// add checksum to GPS
 // - error if does not start correctly (e.g. stuck or bad Mag readings); or show readings during start
 // - calculate in correct units as option; calculate pitch, roll, yaw as option
+// - log GPS so it will last 1 week with GPS internal memory (or don't use logging function if able to read it in loop)
 // - Low power (e.g. disable USB; check pin direction; power down gyro, screen)
 
 // sample rate settings
@@ -228,6 +231,8 @@ void setup() {
   Wire.setClock(400000);  // set I2C clock to 400 kHz
   
   SerialUSB.println("On");
+  delay(200);
+  
   
   // see if the card is present and can be initialized:
   while (!sd.begin(chipSelect, SPI_FULL_SPEED)) {
@@ -236,6 +241,10 @@ void setup() {
     delay(200);
     digitalWrite(LED_RED, LOW);
     delay(100);
+    displayOn();
+    cDisplay();
+    display.println("Card: fail");
+    display.display();
   }
   rtc.begin();
   loadScript(); // do this early to set time
@@ -249,42 +258,42 @@ void setup() {
     display.display();
   }
 
-
+  if(!skipGPS) gpsOn(); // get GPS on so can get fix while init sensors
+  initSensors();
+ 
 // GPS configuration
   gpsTimeout = 0;
   if(!skipGPS){
-   gpsOn();
-   delay(1000);
    gpsSpewOff();
    SerialUSB.println();
    SerialUSB.println("GPS Status");
    waitForGPS();
    gpsStatusLogger();
 
-   // if any data in GPSlogger, download it to microSD
-   SerialUSB.println();
-   SerialUSB.println("Dump GPS");
-   cDisplay();
-   display.println("Download");
-   display.println("GPS Log");
-   display.display();
-   if(gpsDumpLogger()==1){
-     // erase data if download was good
-     SerialUSB.println();
-     SerialUSB.println("Erase GPS");
-     gpsEraseLogger();
-   }
-
-  if(logGPS){
-   // start GPS logger
-   SerialUSB.println();
-   SerialUSB.println("Start logging");
-   gpsStartLogger();
-   SerialUSB.println();
-   SerialUSB.println("GPS Status");
-   gpsStatusLogger();
-   SerialUSB.println();
-  }
+//   // if any data in GPSlogger, download it to microSD
+//   SerialUSB.println();
+//   SerialUSB.println("Dump GPS");
+//   cDisplay();
+//   display.println("Download");
+//   display.println("GPS Log");
+//   display.display();
+//   if(gpsDumpLogger()==1){
+//     // erase data if download was good
+//     SerialUSB.println();
+//     SerialUSB.println("Erase GPS");
+//     gpsEraseLogger();
+//   }
+//
+//  if(logGPS){
+//   // start GPS logger
+//   SerialUSB.println();
+//   SerialUSB.println("Start logging");
+//   gpsStartLogger();
+//   SerialUSB.println();
+//   SerialUSB.println("GPS Status");
+//   gpsStatusLogger();
+//   SerialUSB.println();
+//  }
    gpsSpewOn();
    cDisplay();
    display.print("GPS Fix");
@@ -307,11 +316,11 @@ void setup() {
       displayGPS();
       display.display();
     } 
-    gpsSpewOff();
-    waitForGPS();
+  //  gpsSpewOff();
+  //  waitForGPS();
   } // skip GPS
   
-  if(!logGPS) gpsOff();
+  if(logGPS==0) gpsOff();
   
   getTime();
   readVoltage();
@@ -320,14 +329,14 @@ void setup() {
   SerialUSB.println("Loggerhead OpenTag2");
 
   getChipId();
-  initSensors();
+  
   t = rtc.getEpoch();
   if(burnFlag==2){
     burnTime = t + burnSeconds;
     SerialUSB.print("Burn time set");
     SerialUSB.println(burnTime);
   }
-  if(startTime==0) startTime = t + 10; // wait a couple of seconds if no delay start set from script
+  if(startTime==0) startTime = t + 3; // wait a couple of seconds if no delay start set from script
   SerialUSB.print("Time:"); SerialUSB.println(t);
   SerialUSB.print("Start Time:"); SerialUSB.println(startTime);
   digitalWrite(LED1, LOW);
@@ -335,14 +344,14 @@ void setup() {
 
   // wait here 8 seconds so can see settings
   int startWait = millis();
-  while (millis()-startWait < 8000){
+  while (millis()-startWait < 2000){
       t = rtc.getEpoch();
       getTime();
       cDisplay();
       displaySettings();
       displayClock(displayLine4);
       display.display();
-      delay(100);
+      delay(500);
   }
 }
 
@@ -371,27 +380,37 @@ void loop() {
       endTime = startTime + recDur;
       startTime += recDur + recInt;  // this will be next start time for interval record
       fileInit();
-      startTimer((int) imuSrate); // start timer
       updateTemp();  // get first reading ready
       mode = 1;
-      cDisplay();
-      display.display();
+//      cDisplay();
+//      display.display();
+      startTimer((int) imuSrate); // start timer
       //displayOff();
     }
-  }
+  } // mode = 0
 
   // Recording: check if time to end
   while(mode==1){
     t = rtc.getEpoch();
-//    if (logGPS & (HWSERIAL.available() > 0)) {    
-//      gps(HWSERIAL.read()); // parse incoming GPS data stream
-//    }
-//    if (goodGPS) {
-//      goodGPS = 0;
-//      cDisplay();
-//      displayGPS();
-//    }
+    
+    // parse GPS stream to update lat/lon
+    if (logGPS){
+      byte incomingByte;
+      while(HWSERIAL.available() > 0) {  
+        digitalWrite(LED_RED, HIGH);  
+        incomingByte = HWSERIAL.read();
+        gps(incomingByte); // parse incoming GPS data stream
+        SerialUSB.write(incomingByte);        
+      }
+      digitalWrite(LED_RED, LOW);
+    }
+
+    if (goodGPS){
+      goodGPS = 0;
+    }
+
     writeData();
+    
     if(t >= endTime){
       dataFile.close(); // close file
       if(recInt==0){  // no interval between files
@@ -403,6 +422,8 @@ void loop() {
       mode = 0;
       break;
     }
+
+    // Check if stop button pressed
     if(digitalRead(BUTTON1)==0){
       delay(10); // simple deBounce
       if(digitalRead(BUTTON1)==0){
@@ -448,10 +469,16 @@ void initSensors(){
   SerialUSB.print(" press:"); SerialUSB.print(pressure_mbar);
   SerialUSB.print(" depth:"); SerialUSB.print(depth);
   SerialUSB.print(" temp:"); SerialUSB.println(temperature);
+
+  display.print("Press:"); display.println(pressure_mbar);
+  display.print("Depth:"); display.print(depth);
+  display.print("Temp:"); display.println(temperature);
+
+  delay(1000);
   
   // IMU
   SerialUSB.println(mpuInit(1));
-  for(int i=0; i<10; i++){
+  for(int i=0; i<100; i++){
     readImu();
     calcImu();
  
@@ -466,17 +493,43 @@ void initSensors(){
     SerialUSB.print(mag_y); SerialUSB.print("\t");
     SerialUSB.print(mag_z); SerialUSB.print("\t");
     SerialUSB.print("FIFO pts:"); SerialUSB.println(getImuFifo()); //check FIFO is working
-    delay(100);
+
+    cDisplay();
+    display.println(" X   Y   Z");
+    display.print("A:");
+    display.print(accel_x); display.print(" ");
+    display.print(accel_y); display.print(" ");
+    display.println(accel_z);
+
+    display.print("G:");
+    display.print(gyro_x); display.print(" ");
+    display.print(gyro_y); display.print(" ");
+    display.println(gyro_z); 
+
+    display.print("M:");
+    display.print(mag_x); display.print(" ");
+    display.print(mag_y); display.print(" ");
+    display.print(mag_z);
+    display.display();
+    delay(200);
   }
   
   // RGB
   SerialUSB.print("RGBinit: ");
   SerialUSB.println(islInit()); 
-  for(int n=0; n<4; n++){
+  for(int n=0; n<20; n++){
       islRead();
       SerialUSB.print("R:"); SerialUSB.print(islRed); SerialUSB.print("\t");
       SerialUSB.print("G:"); SerialUSB.print(islGreen); SerialUSB.print("\t");
       SerialUSB.print("B:"); SerialUSB.println(islBlue);
+
+      cDisplay();
+      display.println("Light");
+      display.print("Red:  "); display.println(islRed);
+      display.print("Green:"); display.println(islGreen);
+      display.print("Blue: "); display.println(islBlue);
+      display.display();
+      
       delay(200);
   }
 }
@@ -496,7 +549,7 @@ void fileInit()
    }
    dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,red,green,blue,pressure(mBar),temperature,datetime,latitude,latHem,longitude,lonHem");
    SdFile::dateTimeCallback(file_date_time);
-  SerialUSB.println(filename);
+   SerialUSB.println(filename);
 }
 
 void getTime(){

@@ -30,11 +30,32 @@ int gps(byte incomingByte){
   char temp7[7];
   char temp12[12];
 
-  // check for start of new message
-  // if a $, start it at Pos 0, and continue until next G
-  if(incomingByte=='$') {
+
+// portions modified from Adafruit library
+// https://github.com/adafruit/Adafruit_GPS/blob/master/Adafruit_GPS.cpp
+  // check for end of a message
+  if(incomingByte=='\n') {
     //process last message
-    if(streamPos > 10){
+    if (gpsStream[streamPos-4] == '*') {
+      SerialUSB.print("Check sum: ");
+      SerialUSB.println(gpsStream);
+      uint16_t sum = parseHex(gpsStream[streamPos-3]) * 16;
+      sum += parseHex(gpsStream[streamPos-2]);
+     // SerialUSB.println(sum);
+  
+      // check checksum 
+      for (uint8_t i=1; i < (streamPos-4); i++) {
+      //  SerialUSB.print(gpsStream[i]);
+        sum ^= gpsStream[i];
+      //  SerialUSB.print(sum); SerialUSB.print(" ");
+      }
+      if (sum != 0) {
+        // bad checksum :(
+        streamPos = 0;
+        SerialUSB.println("bad checksum");
+        return false;
+      }
+    }
       // OriginGPS
       // $GNRMC,134211.000,A,2715.5428,N,08228.7924,W,1.91,167.64,020816,,,A*62
       // Adafruit GPS
@@ -115,12 +136,15 @@ int gps(byte incomingByte){
            longitude = rmcLon;
            latHem = rmcLatHem[0];
            lonHem = rmcLonHem[0];
-           SerialUSB.print("Lat:"); SerialUSB.println(latitude);
-           SerialUSB.print("Lon:"); SerialUSB.println(longitude);
+           SerialUSB.print("\nLat:"); SerialUSB.println(latitude, 4);
+           SerialUSB.print("Lon:"); SerialUSB.println(longitude, 4);
+           if((latitude <1000.0) | (longitude<1000.0)) {
+            SerialUSB.print("stream:"); SerialUSB.println(gpsStream);
+           }
            goodGPS = 1;
         }
       }
-    }
+
     // start new message here
     streamPos = 0;
   }
@@ -128,6 +152,22 @@ int gps(byte incomingByte){
   gpsStream[streamPos] = incomingByte;
   streamPos++;
   if(streamPos >= maxChar) streamPos = 0;
+}
+
+
+// read a Hex value and return the decimal equivalent
+
+uint8_t parseHex(char c) {
+    if (c < '0')
+      return 0;
+    if (c <= '9')
+      return c - '0';
+    if (c < 'A')
+       return 0;
+    if (c <= 'F')
+       return (c - 'A')+10;
+    // if (c > 'F')
+    return 0;
 }
 
 void gpsStartLogger(){
