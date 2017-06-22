@@ -484,8 +484,10 @@ void initSensors(){
   
   // IMU
   SerialUSB.println(mpuInit(1));
-  readImu(); //first couple of readings can be 0
-  readImu();
+  for(int i=0; i<10; i++){  // clear initial 0 reads
+    delay(10); 
+    readImu();
+  }
   for(int i=0; i<100; i++){
     readImu();
     calcImu();
@@ -519,18 +521,21 @@ void initSensors(){
     display.print(mag_y); display.print(" ");
     display.print(mag_z);
     display.display();
+    if ((mag_x==0) & (mag_y==0) & (mag_z==0)) mpuInit(1); // try init again
     delay(200);
+  }
 
-    if((mag_x==0) & (mag_y==0) & (mag_z==0)){
+ while((mag_x==0) & (mag_y==0) & (mag_z==0)){
       delay(5000);
       cDisplay();
       display.println("IMU: Fail");
       display.print("Restart tag");
       display.display();
       mpuInit(1); // try init again
-      delay(20000);
+      delay(10000);
+      readImu();
+      calcImu();
     }
-  }
   
   // RGB
   SerialUSB.print("RGBinit: ");
