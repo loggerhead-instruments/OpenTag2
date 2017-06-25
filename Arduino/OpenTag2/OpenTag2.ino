@@ -31,7 +31,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_FeatherOLED.h>
-
+#include <SparkFunMPU9250-DMP.h>
 //
 // DEV SETTINGS
 //
@@ -78,6 +78,7 @@ long gpsTimeOutThreshold = 60 * 15; //if longer then 15 minutes at start without
 #define BUTTON1     5   //PA15
 #define BUTTON2     11  //PA16
 #define GPS_EN      6   // PA20 
+#define MPU_INTERRUPT 42  //PA03
 
 //From variant.cpp
 // C:\Users\David Mann\AppData\Local\Arduino15\packages\arduino\hardware\samd\1.6.15\variants\arduino_zero
@@ -163,6 +164,7 @@ byte halfbufTime = TIMEBUFFERSIZE / 2;
 boolean firstwrittenTime;
 
 // IMU
+MPU9250_DMP imu;
 // IMUBUFFERSIZE = 2 * 9 channels * 100 / sec
 #define IMUBUFFERSIZE 1800 
 volatile int16_t imuBuffer[IMUBUFFERSIZE]; // buffer used to store IMU sensor data before writes in bytes
@@ -233,6 +235,7 @@ void setup() {
   digitalWrite(burnWire, LOW);
   pinMode(displayPow, OUTPUT);
   digitalWrite(displayPow, HIGH); 
+  pinMode(MPU_INTERRUPT, INPUT_PULLUP);
 
   Wire.begin();
   Wire.setClock(400000);  // set I2C clock to 400 kHz
@@ -498,11 +501,11 @@ void initSensors(){
 //  delay(6000);
   
   // IMU
-  SerialUSB.println(mpuInit(1));
-  for(int i=0; i<10; i++){  // clear initial 0 reads
-    delay(10); 
-    readImu();
-  }
+//  SerialUSB.println(mpuInit(1));
+//  for(int i=0; i<10; i++){  // clear initial 0 reads
+//    delay(10); 
+//    readImu();
+//  }
 
 // while((mag_x==0) & (mag_y==0) & (mag_z==0)){
 //      cDisplay();
@@ -518,7 +521,54 @@ void initSensors(){
 //      
 //    }
 
+  if (imu.begin() != INV_SUCCESS)
+  {
+    while (1)
+    {
+      SerialUSB.println("Unable to communicate with MPU-9250");
+      SerialUSB.println("Check connections, and try again.");
+      SerialUSB.println();
+      cDisplay();
+      display.print("MPU: Fail");
+      display.display();
+      delay(5000);
+    }
+  }
 
+// Enable all sensors
+  imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
+  imu.setSampleRate(25); // Set accel/gyro sample rate to 4Hz
+  imu.setCompassSampleRate(25); // Set mag rate to 4Hz
+  // Gyro options are +/- 250, 500, 1000, or 2000 dps
+  imu.setGyroFSR(2000); // Set gyro to 2000 dps
+  // Accel options are +/- 2, 4, 8, or 16 g
+  imu.setAccelFSR(16); // Set accel to +/-2g
+  
+  // setLPF() can be used to set the digital low-pass filter
+  // of the accelerometer and gyroscope.
+  // Can be any of the following: 188, 98, 42, 20, 10, 5
+  // (values are in Hz).
+  imu.setLPF(42); // Set LPF corner frequency to 5Hz
+
+  // Use enableInterrupt() to configure the MPU-9250's 
+  // interrupt output as a "data ready" indicator.
+  imu.enableInterrupt();
+
+  // The interrupt level can either be active-high or low.
+  // Configure as active-low, since we'll be using the pin's
+  // internal pull-up resistor.
+  // Options are INT_ACTIVE_LOW or INT_ACTIVE_HIGH
+  imu.setIntLevel(INT_ACTIVE_LOW);
+
+  // The interrupt can be set to latch until data has
+  // been read, or to work as a 50us pulse.
+  // Use latching method -- we'll read from the sensor
+  // as soon as we see the pin go LOW.
+  // Options are INT_LATCHED or INT_50US_PULSE
+  imu.setIntLatched(INT_LATCHED);
+
+ //displayOff();
+ 
  // for getting offset
   int minMagX = mag_x;
   int maxMagX = mag_x;
@@ -526,101 +576,100 @@ void initSensors(){
   int maxMagY = mag_y;
   int minMagZ = mag_z;
   int maxMagZ = mag_z;
-   
-  for(int i=0; i<500; i++){
-    readImu();
-    calcImu();
-    euler();
-
-    // update min and max Mag
-    if (mag_x<minMagX) minMagX = mag_x;
-    if (mag_x>maxMagX) maxMagX = mag_x;
-    if (mag_y<minMagY) minMagY = mag_y;
-    if (mag_y>maxMagY) maxMagY = mag_y;
-    if (mag_z<minMagZ) minMagZ = mag_z;
-    if (mag_z>maxMagZ) maxMagZ = mag_z;
-
-    SerialUSB.print("a/g/m/t: \t");
-    SerialUSB.print(accel_x); SerialUSB.print("\t");
-    SerialUSB.print(accel_y); SerialUSB.print("\t");
-    SerialUSB.print(accel_z); SerialUSB.print("\t");
-    SerialUSB.print(gyro_x); SerialUSB.print("\t");
-    SerialUSB.print(gyro_y); SerialUSB.print("\t");
-    SerialUSB.print(gyro_z); SerialUSB.print("\t");
-    SerialUSB.print(mag_x); SerialUSB.print("\t");
-    SerialUSB.print(mag_y); SerialUSB.print("\t");
-    SerialUSB.print(mag_z); SerialUSB.print("\t");
-    SerialUSB.print("FIFO pts:"); SerialUSB.println(getImuFifo()); //check FIFO is working
-
-    cDisplay();
-    display.println("CAL ");
-    display.print("A:");
-    display.print(accel_x); display.print(" ");
-    display.print(accel_y); display.print(" ");
-    display.println(accel_z);
-
-//    display.print("G:");
-//    display.print(gyro_x); display.print(" ");
-//    display.print(gyro_y); display.print(" ");
-//    display.println(gyro_z); 
-
-    display.print("M:");
-    display.print(mag_x); display.print(" ");
-    display.print(mag_y); display.print(" ");
-    display.println(mag_z);
-
-    display.print(pitch); display.print(" ");
-    display.print(roll); display.print(" ");
-    display.println(yaw);
-    display.display();
-    if ((mag_x==0) & (mag_y==0) & (mag_z==0)) mpuInit(1); // try init again
-    delay(20);
+  int i=0; 
+  while(i<400){
+    if ( digitalRead(MPU_INTERRUPT) == LOW )
+    {
+      i++;
+      // Call update() to update the imu objects sensor data.
+      imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+      calcImu();
+      euler();
+       // update min and max Mag
+      if (imu.mx<minMagX) minMagX = imu.mx;
+      if (imu.mx>maxMagX) maxMagX = imu.mx;
+      if (imu.my<minMagY) minMagY = imu.my;
+      if (imu.my>maxMagY) maxMagY = imu.my;
+      if (imu.mz<minMagZ) minMagZ = imu.mz;
+      if (imu.mz>maxMagZ) maxMagZ = imu.mz;
+  
+       if(printDiags){
+        SerialUSB.print("a/g/m: \t");
+        SerialUSB.print(imu.ax); SerialUSB.print("\t");
+        SerialUSB.print(imu.ay); SerialUSB.print("\t");
+        SerialUSB.print(imu.az); SerialUSB.print("\t");
+        SerialUSB.print(imu.gx); SerialUSB.print("\t");
+        SerialUSB.print(imu.gy); SerialUSB.print("\t");
+        SerialUSB.print(imu.gz); SerialUSB.print("\t");
+        SerialUSB.print(mag_x); SerialUSB.print("\t");
+        SerialUSB.print(mag_y); SerialUSB.print("\t");
+        SerialUSB.println(mag_z);
+        SerialUSB.print(pitch); SerialUSB.print("\t");
+        SerialUSB.print(roll); SerialUSB.print("\t");
+        SerialUSB.println(yaw); 
+      }
+     
+      cDisplay();
+      display.println("CAL ");
+      display.print("A:");
+      display.print(imu.ax); display.print(" ");
+      display.print(imu.ay); display.print(" ");
+      display.println(imu.az);
+      display.print("M:");
+      display.print(imu.mx); display.print(" ");
+      display.print(imu.my); display.print(" ");
+      display.println(imu.mz);
+      display.print(pitch); display.print(" ");
+      display.print(roll); display.print(" "); 
+      display.print(yaw);
+      display.display();
+    }
   }
 
   magXoffset = ((maxMagX - minMagX) / 2) + minMagX;
   magYoffset = ((maxMagY - minMagY) / 2) + minMagY;
   magZoffset = ((maxMagZ - minMagZ) / 2) + minMagZ;
 
-  for(int i=0; i<1000; i++){
-    readImu();
-    calcImu();
-    euler();
+  while(1){
+    if ( digitalRead(MPU_INTERRUPT) == LOW )
+    {
+      // Call update() to update the imu objects sensor data.
+      imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+      calcImu();
+      euler();
 
-    SerialUSB.print("a/g/m/t: \t");
-    SerialUSB.print(accel_x); SerialUSB.print("\t");
-    SerialUSB.print(accel_y); SerialUSB.print("\t");
-    SerialUSB.print(accel_z); SerialUSB.print("\t");
-    SerialUSB.print(gyro_x); SerialUSB.print("\t");
-    SerialUSB.print(gyro_y); SerialUSB.print("\t");
-    SerialUSB.print(gyro_z); SerialUSB.print("\t");
-    SerialUSB.print(mag_x); SerialUSB.print("\t");
-    SerialUSB.print(mag_y); SerialUSB.print("\t");
-    SerialUSB.print(mag_z); SerialUSB.print("\t");
-    SerialUSB.print("FIFO pts:"); SerialUSB.println(getImuFifo()); //check FIFO is working
+      if(printDiags){
+//        SerialUSB.print("a/g/m: \t");
+//        SerialUSB.print(imu.ax); SerialUSB.print("\t");
+//        SerialUSB.print(imu.ay); SerialUSB.print("\t");
+//        SerialUSB.print(imu.az); SerialUSB.print("\t");
+//        SerialUSB.print(imu.gx); SerialUSB.print("\t");
+//        SerialUSB.print(imu.gy); SerialUSB.print("\t");
+//        SerialUSB.print(imu.gz); SerialUSB.print("\t");
+//        SerialUSB.print(mag_x); SerialUSB.print("\t");
+//        SerialUSB.print(mag_y); SerialUSB.print("\t");
+//        SerialUSB.println(mag_z);
+        SerialUSB.print(pitch); SerialUSB.print("\t");
+        SerialUSB.print(roll); SerialUSB.print("\t");
+        SerialUSB.println(yaw); 
+      }
 
-    cDisplay();
-    display.println("  X   Y   Z");
-    display.print("A:");
-    display.print(accel_x); display.print(" ");
-    display.print(accel_y); display.print(" ");
-    display.println(accel_z);
-
-//    display.print("G:");
-//    display.print(gyro_x); display.print(" ");
-//    display.print(gyro_y); display.print(" ");
-//    display.println(gyro_z); 
-
-    display.print("M:");
-    display.print(mag_x); display.print(" ");
-    display.print(mag_y); display.print(" ");
-    display.println(mag_z);
-
-    display.print(pitch); display.print(" ");
-    display.print(roll); display.print(" ");
-    display.println(yaw);
-    display.display();
-    if ((mag_x==0) & (mag_y==0) & (mag_z==0)) mpuInit(1); // try init again
-    delay(300);
+     
+      cDisplay();
+      display.println("  ");
+      display.print("A:");
+      display.print(imu.ax); display.print(" ");
+      display.print(imu.ay); display.print(" ");
+      display.println(imu.az);
+      display.print("M:");
+      display.print(mag_x); display.print(" ");
+      display.print(mag_y); display.print(" ");
+      display.println(mag_z);
+      display.print(pitch); display.print(" ");
+      display.print(roll); display.print(" "); 
+      display.print(yaw);
+      display.display();
+    }
   }
   
   // RGB
@@ -716,28 +765,37 @@ void sampleSensors(void){  //interrupt at update_rate
 
 void calcImu(){
 
-//  accel_x = (int16_t) ((int16_t)imuTempBuffer[0] << 8 | imuTempBuffer[1]);    
-//  accel_y = (int16_t) ((int16_t)imuTempBuffer[2] << 8 | imuTempBuffer[3]);   
-  accel_z = (int16_t) ((int16_t)imuTempBuffer[4] << 8 | imuTempBuffer[5]);    
-
-  accel_x = (int16_t) ((int16_t)imuTempBuffer[2] << 8 | imuTempBuffer[3]);    
-  accel_y = (int16_t) ((int16_t)imuTempBuffer[0] << 8 | imuTempBuffer[1]);   
-
-  gyro_x = (int16_t) (((int16_t)imuTempBuffer[8]) << 8 | imuTempBuffer[9]);  
-  gyro_y = (int16_t)  (((int16_t)imuTempBuffer[10] << 8) | imuTempBuffer[11]);   
-  gyro_z = (int16_t)  (((int16_t)imuTempBuffer[12] << 8) | imuTempBuffer[13]);  
-  
-  mag_x = (int16_t)  (((int16_t)imuTempBuffer[14] << 8) | imuTempBuffer[15]);   
-  mag_y = (int16_t)  (((int16_t)imuTempBuffer[16] << 8) | imuTempBuffer[17]);     
-  mag_z = (int16_t) (((int16_t)imuTempBuffer[18] << 8) | imuTempBuffer[19]); 
+////  accel_x = (int16_t) ((int16_t)imuTempBuffer[0] << 8 | imuTempBuffer[1]);    
+////  accel_y = (int16_t) ((int16_t)imuTempBuffer[2] << 8 | imuTempBuffer[3]);   
+//  accel_z = (int16_t) ((int16_t)imuTempBuffer[4] << 8 | imuTempBuffer[5]);    
+//
+//  accel_x = (int16_t) ((int16_t)imuTempBuffer[2] << 8 | imuTempBuffer[3]);    
+//  accel_y = (int16_t) ((int16_t)imuTempBuffer[0] << 8 | imuTempBuffer[1]);   
+//
+//  gyro_x = (int16_t) (((int16_t)imuTempBuffer[8]) << 8 | imuTempBuffer[9]);  
+//  gyro_y = (int16_t)  (((int16_t)imuTempBuffer[10] << 8) | imuTempBuffer[11]);   
+//  gyro_z = (int16_t)  (((int16_t)imuTempBuffer[12] << 8) | imuTempBuffer[13]);  
+//  
+//  mag_x = (int16_t)  (((int16_t)imuTempBuffer[14] << 8) | imuTempBuffer[15]);   
+//  mag_y = (int16_t)  (((int16_t)imuTempBuffer[16] << 8) | imuTempBuffer[17]);     
+//  mag_z = (int16_t) (((int16_t)imuTempBuffer[18] << 8) | imuTempBuffer[19]); 
 
 //  mag_x *= magAdjX;
 //  mag_y *= magAdjY;
 //  mag_z *= magAdjZ;
 
-  mag_x -= magXoffset;
-  mag_y -= magYoffset;
-  mag_z -= magZoffset;
+// NED orientation
+
+  gyro_x = imu.gx;
+  gyro_y = imu.gy;
+  gyro_z = -imu.gz;
+  accel_x = imu.ax;
+  accel_y = imu.ay;
+  accel_z = -imu.az;
+  mag_x = imu.my - magYoffset;
+  mag_y = imu.mx - magXoffset;
+  mag_z = (imu.mz - magZoffset);
+  
 }
 
 void readVoltage(){

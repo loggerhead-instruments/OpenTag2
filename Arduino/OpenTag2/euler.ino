@@ -23,6 +23,7 @@ void euler(){
 
   // Psi = yaw = heading
   float psi = atan2(-Bfy, Bfx);
+
   pitch = degrees(theta);
   roll = degrees(phi);
   yaw = degrees(psi);
