@@ -48,13 +48,19 @@ int mpuInit(boolean mode)
      return ecode;
   }
 
+    delay(100);
+    
     //set clock source
     ecode = I2Cwrite(GyroAddress, 0x6B, 0x01);  //everything awake; clock from X gyro reference
     SerialUSB.println("Power on");
+
+    delay(200);
     
     // configure frame sync and LPF
     I2Cwrite(GyroAddress, 0x1A, 0x03);  //no frame sync; Gyro to sample at 1 kHz with DLPF 41 Hz (4.8 ms delay)
     SerialUSB.println("MPU sample rate");
+
+    delay(10);
     
     // set gyro range
     I2Cwrite(GyroAddress, 0x1B, 0x10);  // 0x10 +/- 1000 deg/s ; 0x18 +/-2000 deg/s Fchoice_b = 00 (use DLPF)
@@ -82,6 +88,7 @@ int mpuInit(boolean mode)
      I2Cwrite(GyroAddress, INT_PIN_CFG, 0x22);
     // Enable data ready (bit 0) interrupt
      I2Cwrite(GyroAddress, INT_ENABLE, 0x01);
+
 
     // setup compass
     setup_compass();
@@ -115,6 +122,19 @@ void readImu()
   Wire.write(0x3B);        //sends address to read from  0x3B is direct read; 0x74 is FIFO
   Wire.endTransmission(0); //send restart to keep connection alive
   Wire.requestFrom(GyroAddress, 20, 0); //send restart to keep alive
+  while(Wire.available()){
+    imuTempBuffer[i] = Wire.read(); 
+    i++;
+  }
+  Wire.endTransmission();
+}
+
+void readCompass(){
+  int i = 14;
+  Wire.beginTransmission(CompassAddress); 
+  Wire.write(0x03); 
+  Wire.endTransmission(0); //send restart to keep connection alive
+  Wire.requestFrom(CompassAddress, 6, 0); //send restart to keep alive
   while(Wire.available()){
     imuTempBuffer[i] = Wire.read(); 
     i++;
@@ -204,6 +224,30 @@ int setup_compass(void)
         return -15;
         
     return 0;
+}
+
+void loadCompassAdjust(){
+  Wire.beginTransmission(CompassAddress); 
+  Wire.write(0x10);
+  Wire.endTransmission(0); //send restart to keep connection alive
+  Wire.requestFrom(CompassAddress, 3, 0); //send restart to keep alive
+  byte hAdjX = Wire.read();
+  byte hAdjY = Wire.read();
+  byte hAdjZ = Wire.read();
+  Wire.endTransmission();
+
+  magAdjX = (((hAdjX - 128) * 0.5) / 128) + 1;
+  magAdjY = (((hAdjY - 128) * 0.5) / 128) + 1;
+  magAdjZ = (((hAdjZ - 128) * 0.5) / 128) + 1;
+
+  if(printDiags){
+    SerialUSB.print("Mag Adjust X,Y,Z");
+    SerialUSB.println(hAdjX);
+    SerialUSB.println(hAdjY);
+    SerialUSB.println(hAdjZ);
+    
+  }
+  
 }
 
 int intStatus(){

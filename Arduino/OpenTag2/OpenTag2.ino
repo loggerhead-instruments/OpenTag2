@@ -40,7 +40,7 @@ int dd = 1; // dd=0 to disable display
 int recDur = 60;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
-int skipGPS = 0;
+int skipGPS = 1;
 int logGPS = 0; // if not logging, turn off GPS after get time
 long gpsTimeOutThreshold = 60 * 15; //if longer then 15 minutes at start without GPS time, just start
 #define HWSERIAL Serial1
@@ -183,6 +183,13 @@ int16_t gyro_y;
 int16_t gyro_z;
 float gyro_temp;
 int accel_scale = 16;
+float pitch, roll, yaw;
+int magAdjX = 1; 
+int magAdjY = 1; 
+int magAdjZ = 1;
+int magXoffset;
+int magYoffset;
+int magZoffset;
 
 
 // GPS
@@ -229,10 +236,18 @@ void setup() {
 
   Wire.begin();
   Wire.setClock(400000);  // set I2C clock to 400 kHz
-  
+
+  delay(8000);
   SerialUSB.println("On");
   delay(200);
   
+
+  // Test pitch, roll, yaw
+  delay(1000);
+  displayOn();
+  initSensors();
+  
+
   
   // see if the card is present and can be initialized:
   while (!sd.begin(chipSelect, SPI_FULL_SPEED)) {
@@ -461,26 +476,26 @@ void alarmMatch(){
 
 void initSensors(){
   // Pressure/Temperature
-  pressInit();
-  updatePress();
-  delay(20);
-  readPress();
-  updateTemp();
-  delay(20);
-  readTemp();
-  calcPressTemp();
-  SerialUSB.print(" press:"); SerialUSB.print(pressure_mbar);
-  SerialUSB.print(" depth:"); SerialUSB.print(depth);
-  SerialUSB.print(" temp:"); SerialUSB.println(temperature);
-
-  cDisplay();
-  display.println();
-  display.print("Press:"); display.println(pressure_mbar);
-  display.print("Depth:"); display.println(depth);
-  display.print("Temp:"); display.println(temperature);
-  display.display();
-
-  delay(6000);
+//  pressInit();
+//  updatePress();
+//  delay(20);
+//  readPress();
+//  updateTemp();
+//  delay(20);
+//  readTemp();
+//  calcPressTemp();
+//  SerialUSB.print(" press:"); SerialUSB.print(pressure_mbar);
+//  SerialUSB.print(" depth:"); SerialUSB.print(depth);
+//  SerialUSB.print(" temp:"); SerialUSB.println(temperature);
+//
+//  cDisplay();
+//  display.println();
+//  display.print("Press:"); display.println(pressure_mbar);
+//  display.print("Depth:"); display.println(depth);
+//  display.print("Temp:"); display.println(temperature);
+//  display.display();
+//
+//  delay(6000);
   
   // IMU
   SerialUSB.println(mpuInit(1));
@@ -488,10 +503,89 @@ void initSensors(){
     delay(10); 
     readImu();
   }
-  for(int i=0; i<100; i++){
+
+// while((mag_x==0) & (mag_y==0) & (mag_z==0)){
+//      cDisplay();
+//      display.println("IMU: Fail");
+//      display.print("Restart tag");
+//      display.display();
+//      mpuInit(1); // try init again
+//      delay(1000);
+//      readImu();
+//      calcImu();
+//      readImu();
+//      calcImu();
+//      
+//    }
+
+
+ // for getting offset
+  int minMagX = mag_x;
+  int maxMagX = mag_x;
+  int minMagY = mag_y;
+  int maxMagY = mag_y;
+  int minMagZ = mag_z;
+  int maxMagZ = mag_z;
+   
+  for(int i=0; i<500; i++){
     readImu();
     calcImu();
- 
+    euler();
+
+    // update min and max Mag
+    if (mag_x<minMagX) minMagX = mag_x;
+    if (mag_x>maxMagX) maxMagX = mag_x;
+    if (mag_y<minMagY) minMagY = mag_y;
+    if (mag_y>maxMagY) maxMagY = mag_y;
+    if (mag_z<minMagZ) minMagZ = mag_z;
+    if (mag_z>maxMagZ) maxMagZ = mag_z;
+
+    SerialUSB.print("a/g/m/t: \t");
+    SerialUSB.print(accel_x); SerialUSB.print("\t");
+    SerialUSB.print(accel_y); SerialUSB.print("\t");
+    SerialUSB.print(accel_z); SerialUSB.print("\t");
+    SerialUSB.print(gyro_x); SerialUSB.print("\t");
+    SerialUSB.print(gyro_y); SerialUSB.print("\t");
+    SerialUSB.print(gyro_z); SerialUSB.print("\t");
+    SerialUSB.print(mag_x); SerialUSB.print("\t");
+    SerialUSB.print(mag_y); SerialUSB.print("\t");
+    SerialUSB.print(mag_z); SerialUSB.print("\t");
+    SerialUSB.print("FIFO pts:"); SerialUSB.println(getImuFifo()); //check FIFO is working
+
+    cDisplay();
+    display.println("CAL ");
+    display.print("A:");
+    display.print(accel_x); display.print(" ");
+    display.print(accel_y); display.print(" ");
+    display.println(accel_z);
+
+//    display.print("G:");
+//    display.print(gyro_x); display.print(" ");
+//    display.print(gyro_y); display.print(" ");
+//    display.println(gyro_z); 
+
+    display.print("M:");
+    display.print(mag_x); display.print(" ");
+    display.print(mag_y); display.print(" ");
+    display.println(mag_z);
+
+    display.print(pitch); display.print(" ");
+    display.print(roll); display.print(" ");
+    display.println(yaw);
+    display.display();
+    if ((mag_x==0) & (mag_y==0) & (mag_z==0)) mpuInit(1); // try init again
+    delay(20);
+  }
+
+  magXoffset = ((maxMagX - minMagX) / 2) + minMagX;
+  magYoffset = ((maxMagY - minMagY) / 2) + minMagY;
+  magZoffset = ((maxMagZ - minMagZ) / 2) + minMagZ;
+
+  for(int i=0; i<1000; i++){
+    readImu();
+    calcImu();
+    euler();
+
     SerialUSB.print("a/g/m/t: \t");
     SerialUSB.print(accel_x); SerialUSB.print("\t");
     SerialUSB.print(accel_y); SerialUSB.print("\t");
@@ -511,31 +605,23 @@ void initSensors(){
     display.print(accel_y); display.print(" ");
     display.println(accel_z);
 
-    display.print("G:");
-    display.print(gyro_x); display.print(" ");
-    display.print(gyro_y); display.print(" ");
-    display.println(gyro_z); 
+//    display.print("G:");
+//    display.print(gyro_x); display.print(" ");
+//    display.print(gyro_y); display.print(" ");
+//    display.println(gyro_z); 
 
     display.print("M:");
     display.print(mag_x); display.print(" ");
     display.print(mag_y); display.print(" ");
-    display.print(mag_z);
+    display.println(mag_z);
+
+    display.print(pitch); display.print(" ");
+    display.print(roll); display.print(" ");
+    display.println(yaw);
     display.display();
     if ((mag_x==0) & (mag_y==0) & (mag_z==0)) mpuInit(1); // try init again
-    delay(200);
+    delay(300);
   }
-
- while((mag_x==0) & (mag_y==0) & (mag_z==0)){
-      delay(5000);
-      cDisplay();
-      display.println("IMU: Fail");
-      display.print("Restart tag");
-      display.display();
-      mpuInit(1); // try init again
-      delay(10000);
-      readImu();
-      calcImu();
-    }
   
   // RGB
   SerialUSB.print("RGBinit: ");
@@ -629,17 +715,29 @@ void sampleSensors(void){  //interrupt at update_rate
 }
 
 void calcImu(){
-  accel_x = (int16_t) ((int16_t)imuTempBuffer[0] << 8 | imuTempBuffer[1]);    
-  accel_y = (int16_t) ((int16_t)imuTempBuffer[2] << 8 | imuTempBuffer[3]);   
+
+//  accel_x = (int16_t) ((int16_t)imuTempBuffer[0] << 8 | imuTempBuffer[1]);    
+//  accel_y = (int16_t) ((int16_t)imuTempBuffer[2] << 8 | imuTempBuffer[3]);   
   accel_z = (int16_t) ((int16_t)imuTempBuffer[4] << 8 | imuTempBuffer[5]);    
+
+  accel_x = (int16_t) ((int16_t)imuTempBuffer[2] << 8 | imuTempBuffer[3]);    
+  accel_y = (int16_t) ((int16_t)imuTempBuffer[0] << 8 | imuTempBuffer[1]);   
 
   gyro_x = (int16_t) (((int16_t)imuTempBuffer[8]) << 8 | imuTempBuffer[9]);  
   gyro_y = (int16_t)  (((int16_t)imuTempBuffer[10] << 8) | imuTempBuffer[11]);   
   gyro_z = (int16_t)  (((int16_t)imuTempBuffer[12] << 8) | imuTempBuffer[13]);  
   
   mag_x = (int16_t)  (((int16_t)imuTempBuffer[14] << 8) | imuTempBuffer[15]);   
-  mag_y = (int16_t)  (((int16_t)imuTempBuffer[16] << 8) | imuTempBuffer[17]);   
-  mag_z = (int16_t)  (((int16_t)imuTempBuffer[18] << 8) | imuTempBuffer[19]); 
+  mag_y = (int16_t)  (((int16_t)imuTempBuffer[16] << 8) | imuTempBuffer[17]);     
+  mag_z = (int16_t) (((int16_t)imuTempBuffer[18] << 8) | imuTempBuffer[19]); 
+
+//  mag_x *= magAdjX;
+//  mag_y *= magAdjY;
+//  mag_z *= magAdjZ;
+
+  mag_x -= magXoffset;
+  mag_y -= magYoffset;
+  mag_z -= magZoffset;
 }
 
 void readVoltage(){

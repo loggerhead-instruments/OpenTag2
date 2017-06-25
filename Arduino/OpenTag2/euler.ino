@@ -22,8 +22,7 @@ void euler(){
   float Bfz = (-mag_x * sinAngle) + (Bz * cosAngle);
 
   // Psi = yaw = heading
-  float psi = atan2(-Bfy, Bfx) + (PI/2.0);
-
+  float psi = atan2(-Bfy, Bfx);
   pitch = degrees(theta);
   roll = degrees(phi);
   yaw = degrees(psi);
