@@ -325,6 +325,8 @@ void setup() {
     if(gpsTimeout <  gpsTimeOutThreshold){
       rtc.setTime(gpsHour, gpsMinute, gpsSecond);
       rtc.setDate(gpsDay, gpsMonth, gpsYear);
+      cDisplay();
+      display.println("FIX");
       displayGPS();
       display.display();
     } 
@@ -449,7 +451,9 @@ void loop() {
         if(dd){
           displayOn();
           cDisplay();
-          display.print("Stopped");
+          display.println("Stopped");
+          display.println();
+          display.print("Safe to turn off");
           display.display();
         }
         delay(58000); // if don't power off in 60s, restart
@@ -487,7 +491,7 @@ void initSensors(){
   SerialUSB.print(" temp:"); SerialUSB.println(temperature);
 
   cDisplay();
-  display.println();
+  display.println("OpenTag2");
   display.print("Press:"); display.println(pressure_mbar);
   display.print("Depth:"); display.println(depth);
   display.print("Temp:"); display.println(temperature);
@@ -605,6 +609,7 @@ void initSensors(){
      
       cDisplay();
       display.println("SPIN ME");
+      display.println("Magnetometer");
 
       display.print("Range:");
       display.print(mXrange); display.print(" ");
@@ -618,6 +623,13 @@ void initSensors(){
     magXoffset = ((maxMagX - minMagX) / 2) + minMagX;
     magYoffset = ((maxMagY - minMagY) / 2) + minMagY;
     magZoffset = ((maxMagZ - minMagZ) / 2) + minMagZ;
+  }
+
+  if((imu.mz==0) & (imu.mx==0) & (imu.my==0)){
+    cDisplay();
+    display.println("IMU ERROR");
+    display.println();
+    display.print("Turn off and on");
   }
 
   cDisplay();
