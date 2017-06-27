@@ -701,9 +701,9 @@ void logFileWrite()
 {
    t = rtc.getEpoch();
    getTime();
-   File logFile = sd.open("log.csv", O_WRITE | O_CREAT | O_APPEND);
-   logFile.print("ID,"); logFile.println(myID);
-   logFile.print("Code version,"); logFile.println(codeVer);
+   File logFile = sd.open("log.txt", O_WRITE | O_CREAT | O_APPEND);
+   logFile.print("ID:"); logFile.println(myID);
+   logFile.print("Code version:"); logFile.println(codeVer);
    logFile.print(year);  logFile.print("-");
    logFile.print(month); logFile.print("-");
    logFile.print(day); logFile.print("T");
@@ -711,10 +711,10 @@ void logFileWrite()
    logFile.print(minute); logFile.print(":");
    logFile.println(second);
 
-   logFile.print("Magnetometer Offsets,");
-   logFile.print(magXoffset);  logFile.print(",");
-   logFile.print(magYoffset); logFile.print(",");
-   logFile.println(magZoffset);
+   logFile.println("Magnetometer Offsets");
+   logFile.print("X:"); logFile.println(magXoffset);  
+   logFile.print("Y:"); logFile.println(magYoffset); 
+   logFile.print("Z:"); logFile.println(magZoffset);
 
    logFile.close();
 }
