@@ -307,7 +307,8 @@ void setup() {
 //  }
    gpsSpewOn();
    cDisplay();
-   display.print("GPS Fix");
+   display.println("GPS Fix");
+   display.print("searching...");
    display.display();
    
    while(!goodGPS){
