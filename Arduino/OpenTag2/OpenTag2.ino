@@ -693,7 +693,7 @@ void logFileWrite()
    t = rtc.getEpoch();
    getTime();
    File logFile = sd.open("log.csv", O_WRITE | O_CREAT | O_APPEND);
-   logFile.print("ID:); logFile.println(myID);
+   logFile.print("ID:"); logFile.println(myID);
    logFile.print(year);  logFile.print("-");
    logFile.print(month); logFile.print("-");
    logFile.print(day);
