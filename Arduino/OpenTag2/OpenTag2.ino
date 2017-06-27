@@ -35,6 +35,7 @@
 //
 // DEV SETTINGS
 //
+float codeVer = 1.0;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
 int recDur = 60;
@@ -702,6 +703,7 @@ void logFileWrite()
    getTime();
    File logFile = sd.open("log.csv", O_WRITE | O_CREAT | O_APPEND);
    logFile.print("ID,"); logFile.println(myID);
+   logFile.print("Code version,"); logFile.println(codeVer);
    logFile.print(year);  logFile.print("-");
    logFile.print(month); logFile.print("-");
    logFile.print(day); logFile.print("T");
