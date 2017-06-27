@@ -40,7 +40,7 @@ int dd = 1; // dd=0 to disable display
 int recDur = 60;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
-int skipGPS = 1;
+int skipGPS = 0;
 int logGPS = 0; // if not logging, turn off GPS after get time
 long gpsTimeOutThreshold = 60 * 15; //if longer then 15 minutes at start without GPS time, just start
 #define HWSERIAL Serial1
@@ -240,7 +240,7 @@ void setup() {
   Wire.begin();
   Wire.setClock(400000);  // set I2C clock to 400 kHz
 
-  delay(8000);
+  delay(500);
   SerialUSB.println("On");
   delay(200);
   
@@ -347,7 +347,7 @@ void setup() {
     SerialUSB.print("Burn time set");
     SerialUSB.println(burnTime);
   }
-  if(startTime==0) startTime = t + 3; // wait a couple of seconds if no delay start set from script
+  if(startTime==0) startTime = t + 10; // wait a couple of seconds if no delay start set from script
   SerialUSB.print("Time:"); SerialUSB.println(t);
   SerialUSB.print("Start Time:"); SerialUSB.println(startTime);
   digitalWrite(LED1, LOW);
@@ -560,7 +560,7 @@ void initSensors(){
   SerialUSB.println(mZrange);
 
   long startCalTime = millis();
-  while((mXrange<580) | (mYrange<580) | (mZrange<580)){
+  while((mXrange<580) | (mYrange<580) | (mZrange<580) | (millis()-startCalTime<20000)){
     if ( digitalRead(MPU_INTERRUPT) == LOW )
     {
       if((millis() - startCalTime) > 100000) {
@@ -617,6 +617,14 @@ void initSensors(){
     magYoffset = ((maxMagY - minMagY) / 2) + minMagY;
     magZoffset = ((maxMagZ - minMagZ) / 2) + minMagZ;
   }
+
+  cDisplay();
+  display.println("Mag Offset");
+  display.print("X ");display.println(magXoffset); 
+  display.print("Y "); display.println(magYoffset); 
+  display.print("Z "); display.print(magZoffset); 
+  display.display();
+  delay(10000);
 
   for(int i=1; i<100; i++){
     if ( digitalRead(MPU_INTERRUPT) == LOW )
@@ -693,10 +701,10 @@ void logFileWrite()
    t = rtc.getEpoch();
    getTime();
    File logFile = sd.open("log.csv", O_WRITE | O_CREAT | O_APPEND);
-   logFile.print("ID:"); logFile.println(myID);
+   logFile.print("ID,"); logFile.println(myID);
    logFile.print(year);  logFile.print("-");
    logFile.print(month); logFile.print("-");
-   logFile.print(day);
+   logFile.print(day); logFile.print("T");
    logFile.print(hour); logFile.print(":");
    logFile.print(minute); logFile.print(":");
    logFile.println(second);
