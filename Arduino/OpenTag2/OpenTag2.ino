@@ -10,10 +10,10 @@
 // RGB light
 // GPS
 
-// -ADD TIMEOUT TO WHILE hwserial AVAILABLE IN MAIN LOOP
+
+// -add WDT
 // add checksum to GPS
-// - error if does not start correctly (e.g. stuck or bad Mag readings); or show readings during start
-// - calculate in correct units as option; calculate pitch, roll, yaw as option
+// - interrupt from gyro to control sampling
 // - log GPS so it will last 1 week with GPS internal memory (or don't use logging function if able to read it in loop)
 // - Low power (e.g. disable USB; check pin direction; power down gyro, screen)
 
@@ -244,14 +244,6 @@ void setup() {
   SerialUSB.println("On");
   delay(200);
   
-
-  // Test pitch, roll, yaw
-  delay(1000);
-  displayOn();
-  initSensors();
-  
-
-  
   // see if the card is present and can be initialized:
   while (!sd.begin(chipSelect, SPI_FULL_SPEED)) {
     SerialUSB.println("Card failed");
@@ -347,6 +339,7 @@ void setup() {
   SerialUSB.println("Loggerhead OpenTag2");
 
   getChipId();
+  logFileWrite();
   
   t = rtc.getEpoch();
   if(burnFlag==2){
@@ -362,7 +355,7 @@ void setup() {
 
   // wait here 8 seconds so can see settings
   int startWait = millis();
-  while (millis()-startWait < 2000){
+  while (millis()-startWait < 8000){
       t = rtc.getEpoch();
       getTime();
       cDisplay();
@@ -479,48 +472,27 @@ void alarmMatch(){
 
 void initSensors(){
   // Pressure/Temperature
-//  pressInit();
-//  updatePress();
-//  delay(20);
-//  readPress();
-//  updateTemp();
-//  delay(20);
-//  readTemp();
-//  calcPressTemp();
-//  SerialUSB.print(" press:"); SerialUSB.print(pressure_mbar);
-//  SerialUSB.print(" depth:"); SerialUSB.print(depth);
-//  SerialUSB.print(" temp:"); SerialUSB.println(temperature);
-//
-//  cDisplay();
-//  display.println();
-//  display.print("Press:"); display.println(pressure_mbar);
-//  display.print("Depth:"); display.println(depth);
-//  display.print("Temp:"); display.println(temperature);
-//  display.display();
-//
-//  delay(6000);
+  pressInit();
+  updatePress();
+  delay(20);
+  readPress();
+  updateTemp();
+  delay(20);
+  readTemp();
+  calcPressTemp();
+  SerialUSB.print(" press:"); SerialUSB.print(pressure_mbar);
+  SerialUSB.print(" depth:"); SerialUSB.print(depth);
+  SerialUSB.print(" temp:"); SerialUSB.println(temperature);
+
+  cDisplay();
+  display.println();
+  display.print("Press:"); display.println(pressure_mbar);
+  display.print("Depth:"); display.println(depth);
+  display.print("Temp:"); display.println(temperature);
+  display.display();
+
+  delay(6000);
   
-  // IMU
-//  SerialUSB.println(mpuInit(1));
-//  for(int i=0; i<10; i++){  // clear initial 0 reads
-//    delay(10); 
-//    readImu();
-//  }
-
-// while((mag_x==0) & (mag_y==0) & (mag_z==0)){
-//      cDisplay();
-//      display.println("IMU: Fail");
-//      display.print("Restart tag");
-//      display.display();
-//      mpuInit(1); // try init again
-//      delay(1000);
-//      readImu();
-//      calcImu();
-//      readImu();
-//      calcImu();
-//      
-//    }
-
   if (imu.begin() != INV_SUCCESS)
   {
     while (1)
@@ -537,7 +509,7 @@ void initSensors(){
 
 // Enable all sensors
   imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
-  imu.setSampleRate(25); // Set accel/gyro sample rate to 4Hz
+  imu.setSampleRate(100); // Set accel/gyro sample rate
   imu.setCompassSampleRate(25); // Set mag rate to 4Hz
   // Gyro options are +/- 250, 500, 1000, or 2000 dps
   imu.setGyroFSR(2000); // Set gyro to 2000 dps
@@ -565,9 +537,7 @@ void initSensors(){
   // Use latching method -- we'll read from the sensor
   // as soon as we see the pin go LOW.
   // Options are INT_LATCHED or INT_50US_PULSE
-  imu.setIntLatched(INT_LATCHED);
-
- //displayOff();
+  imu.setIntLatched(INT_50US_PULSE);
  
  // for getting offset
   int minMagX = mag_x;
@@ -577,9 +547,28 @@ void initSensors(){
   int minMagZ = mag_z;
   int maxMagZ = mag_z;
   int i=0; 
-  while(i<400){
+
+  //attachInterrupt(MPU_INTERRUPT, mpuInterrupt, FALLING);
+  //imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+
+  int mXrange = maxMagX - minMagX;
+  int mYrange = maxMagY - minMagY;
+  int mZrange = maxMagZ - minMagZ;
+
+  SerialUSB.println(mXrange);
+  SerialUSB.println(mYrange);
+  SerialUSB.println(mZrange);
+
+  long startCalTime = millis();
+  while((mXrange<580) | (mYrange<580) | (mZrange<580)){
     if ( digitalRead(MPU_INTERRUPT) == LOW )
     {
+      if((millis() - startCalTime) > 100000) {
+        magXoffset = 0;
+        magYoffset = 0;
+        magZoffset = 0;
+        break;
+      }
       i++;
       // Call update() to update the imu objects sensor data.
       imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
@@ -592,45 +581,44 @@ void initSensors(){
       if (imu.my>maxMagY) maxMagY = imu.my;
       if (imu.mz<minMagZ) minMagZ = imu.mz;
       if (imu.mz>maxMagZ) maxMagZ = imu.mz;
-  
-       if(printDiags){
-        SerialUSB.print("a/g/m: \t");
-        SerialUSB.print(imu.ax); SerialUSB.print("\t");
-        SerialUSB.print(imu.ay); SerialUSB.print("\t");
-        SerialUSB.print(imu.az); SerialUSB.print("\t");
-        SerialUSB.print(imu.gx); SerialUSB.print("\t");
-        SerialUSB.print(imu.gy); SerialUSB.print("\t");
-        SerialUSB.print(imu.gz); SerialUSB.print("\t");
-        SerialUSB.print(mag_x); SerialUSB.print("\t");
-        SerialUSB.print(mag_y); SerialUSB.print("\t");
-        SerialUSB.println(mag_z);
-        SerialUSB.print(pitch); SerialUSB.print("\t");
-        SerialUSB.print(roll); SerialUSB.print("\t");
-        SerialUSB.println(yaw); 
-      }
+
+      mXrange = maxMagX - minMagX;
+      mYrange = maxMagY - minMagY;
+      mZrange = maxMagZ - minMagZ;
+     if(printDiags){
+      SerialUSB.print("a/g/m: \t");
+      SerialUSB.print(imu.ax); SerialUSB.print("\t");
+      SerialUSB.print(imu.ay); SerialUSB.print("\t");
+      SerialUSB.print(imu.az); SerialUSB.print("\t");
+      SerialUSB.print(imu.gx); SerialUSB.print("\t");
+      SerialUSB.print(imu.gy); SerialUSB.print("\t");
+      SerialUSB.print(imu.gz); SerialUSB.print("\t");
+      SerialUSB.print(mag_x); SerialUSB.print("\t");
+      SerialUSB.print(mag_y); SerialUSB.print("\t");
+      SerialUSB.println(mag_z);
+      SerialUSB.print(pitch); SerialUSB.print("\t");
+      SerialUSB.print(roll); SerialUSB.print("\t");
+      SerialUSB.println(yaw); 
+    }
      
       cDisplay();
-      display.println("CAL ");
-      display.print("A:");
-      display.print(imu.ax); display.print(" ");
-      display.print(imu.ay); display.print(" ");
-      display.println(imu.az);
-      display.print("M:");
-      display.print(imu.mx); display.print(" ");
-      display.print(imu.my); display.print(" ");
-      display.println(imu.mz);
+      display.println("SPIN ME");
+
+      display.print("Range:");
+      display.print(mXrange); display.print(" ");
+      display.print(mYrange); display.print(" ");
+      display.println(mZrange);
       display.print(pitch); display.print(" ");
       display.print(roll); display.print(" "); 
       display.print(yaw);
       display.display();
     }
+    magXoffset = ((maxMagX - minMagX) / 2) + minMagX;
+    magYoffset = ((maxMagY - minMagY) / 2) + minMagY;
+    magZoffset = ((maxMagZ - minMagZ) / 2) + minMagZ;
   }
 
-  magXoffset = ((maxMagX - minMagX) / 2) + minMagX;
-  magYoffset = ((maxMagY - minMagY) / 2) + minMagY;
-  magZoffset = ((maxMagZ - minMagZ) / 2) + minMagZ;
-
-  while(1){
+  for(int i=1; i<100; i++){
     if ( digitalRead(MPU_INTERRUPT) == LOW )
     {
       // Call update() to update the imu objects sensor data.
@@ -689,8 +677,38 @@ void initSensors(){
       display.display();
       
       delay(200);
+
   }
 }
+
+void mpuInterrupt(){
+  imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+  calcImu();
+  euler(); 
+  SerialUSB.println(imu.ax);
+}
+
+void logFileWrite()
+{
+   t = rtc.getEpoch();
+   getTime();
+   File logFile = sd.open("log.csv", O_WRITE | O_CREAT | O_APPEND);
+   logFile.print("ID:); logFile.println(myID);
+   logFile.print(year);  logFile.print("-");
+   logFile.print(month); logFile.print("-");
+   logFile.print(day);
+   logFile.print(hour); logFile.print(":");
+   logFile.print(minute); logFile.print(":");
+   logFile.println(second);
+
+   logFile.print("Magnetometer Offsets,");
+   logFile.print(magXoffset);  logFile.print(",");
+   logFile.print(magYoffset); logFile.print(",");
+   logFile.println(magZoffset);
+
+   logFile.close();
+}
+
 
 void fileInit()
 {
@@ -705,7 +723,7 @@ void fileInit()
     dataFile = sd.open(filename, O_WRITE | O_CREAT | O_EXCL);
     
    }
-   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,red,green,blue,pressure(mBar),temperature,datetime,latitude,latHem,longitude,lonHem");
+   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,red,green,blue,pressure(mBar),temperature,datetime,pitch,roll,yaw,latitude,latHem,longitude,lonHem");
    SdFile::dateTimeCallback(file_date_time);
    SerialUSB.println(filename);
 }
@@ -721,9 +739,10 @@ void getTime(){
 
 void sampleSensors(void){  //interrupt at update_rate
   ssCounter++;
-  
-  readImu();
+
+  imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
   calcImu();
+  
   incrementIMU();
 
   // MS58xx start temperature conversion half-way through

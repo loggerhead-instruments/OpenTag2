@@ -189,6 +189,11 @@ void writeSensors(int halfBuf){
     sensorLine += timeBuffer[iTime+5];
     sensorLine += "Z";
 
+    euler();
+    sensorLine += ","; sensorLine += pitch;
+    sensorLine += ","; sensorLine += roll;
+    sensorLine += ","; sensorLine += yaw;
+
     sensorLine += ","; sensorLine += latitude;
     sensorLine += ","; sensorLine += latHem;
     sensorLine += ","; sensorLine += longitude;
