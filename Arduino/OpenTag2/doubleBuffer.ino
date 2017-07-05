@@ -166,11 +166,7 @@ void writeSensors(int halfBuf){
         sensorLine = "";
       }
     }
-    sensorLine += ","; sensorLine += RGBbuffer[iRGB];
-    sensorLine += ","; sensorLine += RGBbuffer[iRGB+1];
-    sensorLine += ","; sensorLine += RGBbuffer[iRGB+2];
-    sensorLine += ","; sensorLine += PTbuffer[iPressure];
-    sensorLine += ","; sensorLine += PTbuffer[iPressure+1];
+    
     sensorLine += ","; sensorLine += timeBuffer[iTime];  // year
     sensorLine += "-"; 
     if(timeBuffer[iTime+1] < 10) sensorLine += "0";
@@ -189,15 +185,24 @@ void writeSensors(int halfBuf){
     sensorLine += timeBuffer[iTime+5];
     sensorLine += "Z";
 
+    sensorLine += ","; sensorLine += RGBbuffer[iRGB];
+    sensorLine += ","; sensorLine += RGBbuffer[iRGB+1];
+    sensorLine += ","; sensorLine += RGBbuffer[iRGB+2];
+    sensorLine += ","; sensorLine += PTbuffer[iPressure];
+    sensorLine += ","; sensorLine += PTbuffer[iPressure+1];
+
     euler();
     sensorLine += ","; sensorLine += pitch;
     sensorLine += ","; sensorLine += roll;
     sensorLine += ","; sensorLine += yaw;
 
-    sensorLine += ","; sensorLine += latitude;
+    sensorLine += ","; sensorLine += String(latitude, 4);
     sensorLine += ","; sensorLine += latHem;
-    sensorLine += ","; sensorLine += longitude;
+    sensorLine += ","; sensorLine += String(longitude, 4);
     sensorLine += ","; sensorLine += lonHem;
+
+    readVoltage();
+    sensorLine +=","; sensorLine += voltage;
     
     dataFile.println(sensorLine);
     iPressure += 2;

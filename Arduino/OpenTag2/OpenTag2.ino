@@ -10,13 +10,6 @@
 // RGB light
 // GPS
 
-
-// -add WDT
-// add checksum to GPS
-// - interrupt from gyro to control sampling
-// - log GPS so it will last 1 week with GPS internal memory (or don't use logging function if able to read it in loop)
-// - Low power (e.g. disable USB; check pin direction; power down gyro, screen)
-
 // sample rate settings
 // 100 Hz IMU/ 1 Hz pressure
 // 10 Hz IMU / 1 Hz pressure
@@ -38,13 +31,13 @@
 float codeVer = 1.01;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
-int recDur = 60;
+int recDur = 600;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
-int skipGPS = 0;
+int skipGPS = 0; // skip GPS for getting time and lat/lon
 int logGPS = 1; // if not logging, turn off GPS after get time
 long gpsTimeOutThreshold = 60 * 15; //if longer then 15 minutes at start without GPS time, just start
-int spinMeTimeOut = 1000;
+int spinMeTimeOut = 15000;
 #define HWSERIAL Serial1
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
 //
@@ -289,14 +282,37 @@ void setup() {
   HWSERIAL.begin(115200);
   delay(1000);
 
-  gpsUpdateRate(2); // update rate (Hz)
-  waitForGPS();
-
-   gpsSpewOn();
+   // if any data in GPSlogger, download it to microSD
+   SerialUSB.println();
+   SerialUSB.println("Dump GPS");
    cDisplay();
-   display.println("GPS Fix");
-   display.print("searching...");
+   display.println("Download");
+   display.println("GPS Log");
    display.display();
+   if(gpsDumpLogger()==1){
+     // erase data if download was good
+     SerialUSB.println();
+     SerialUSB.println("Erase GPS");
+     gpsEraseLogger();
+     waitForGPS();
+   }
+
+  if(logGPS){
+   // start GPS logger
+   SerialUSB.println();
+   SerialUSB.println("Start logging");
+   gpsStartLogger();
+   SerialUSB.println();
+   SerialUSB.println("GPS Status");
+   gpsStatusLogger();
+   SerialUSB.println();
+  }
+
+  gpsSpewOn();
+  cDisplay();
+  display.println("GPS Fix");
+  display.print("searching...");
+  display.display();
    
    while(!goodGPS){
      byte incomingByte;
@@ -316,13 +332,13 @@ void setup() {
       display.println("FIX");
       displayGPS();
       display.display();
-    } 
-  //  gpsSpewOff();
-  //  waitForGPS();
+    }
+    gpsSpewOff();
+    waitForGPS();
   } // skip GPS
   
   if(logGPS==0) gpsOff();
-  gpsStandby();
+  //gpsStandby();
   
   getTime();
   readVoltage();
@@ -400,14 +416,14 @@ void loop() {
     t = rtc.getEpoch();
     
     // parse GPS stream to update lat/lon
-    if (logGPS){
-      byte incomingByte;
-      while(HWSERIAL.available() > 0) {  
-        incomingByte = HWSERIAL.read();
-        gps(incomingByte); // parse incoming GPS data stream
-        //SerialUSB.write(incomingByte);        
-      }
-    }
+//    if (logGPS){
+//      byte incomingByte;
+//      while((HWSERIAL.available() > 0)) {  
+//        incomingByte = HWSERIAL.read();
+//        gps(incomingByte); // parse incoming GPS data stream     
+//        if(rtc.getEpoch()-t > 2) break; //timeout
+//      }
+//    }
     writeData();
     
     if(t >= endTime){
@@ -580,9 +596,9 @@ void initSensors(){
       SerialUSB.print(imu.gx); SerialUSB.print("\t");
       SerialUSB.print(imu.gy); SerialUSB.print("\t");
       SerialUSB.print(imu.gz); SerialUSB.print("\t");
-      SerialUSB.print(mag_x); SerialUSB.print("\t");
-      SerialUSB.print(mag_y); SerialUSB.print("\t");
-      SerialUSB.println(mag_z);
+      SerialUSB.print(imu.mx); SerialUSB.print("\t");
+      SerialUSB.print(imu.my); SerialUSB.print("\t");
+      SerialUSB.println(imu.mz);
       SerialUSB.print(pitch); SerialUSB.print("\t");
       SerialUSB.print(roll); SerialUSB.print("\t");
       SerialUSB.println(yaw); 
@@ -611,6 +627,8 @@ void initSensors(){
     display.println("IMU ERROR");
     display.println();
     display.print("Turn off and on");
+    display.display();
+    while(1);
   }
 
   cDisplay();
@@ -727,7 +745,7 @@ void fileInit()
     dataFile = sd.open(filename, O_WRITE | O_CREAT | O_EXCL);
     
    }
-   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,red,green,blue,pressure(mBar),temperature,datetime,pitch,roll,yaw,latitude,latHem,longitude,lonHem");
+   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,datetime,red,green,blue,pressure(mBar),temperature,pitch,roll,yaw,latitude,latHem,longitude,lonHem,V");
    SdFile::dateTimeCallback(file_date_time);
    SerialUSB.println(filename);
 }
@@ -781,11 +799,9 @@ void sampleSensors(void){  //interrupt at update_rate
     incrementPTbufpos(temperature);
     if(depth<1.0) {
       digitalWrite(vhfPow, HIGH);
-      if(gpsStatus == 0) gpsWake(); // 1ess than 1 meter wake up
     }
     else{
-      if((depth>1.5) & (gpsStatus == 1)) {
-        gpsStandby(); // deeper than 1.5 meter go to sleep 
+      if((depth>1.5)) {
         digitalWrite(vhfPow, LOW);
       }
     }

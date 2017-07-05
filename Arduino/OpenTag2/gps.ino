@@ -52,8 +52,11 @@ int gps(byte incomingByte){
   if((incomingByte=='\n') & (streamPos>4)) {
     //process last message
     if (gpsStream[streamPos-5] == '*') {    
-      SerialUSB.print("Check sum: ");
-      SerialUSB.println(gpsStream);
+      if(printDiags){
+        SerialUSB.print("Check sum: ");
+        SerialUSB.println(gpsStream);
+      }
+      
       uint16_t sum = parseHex(gpsStream[streamPos-4]) * 16;
       sum += parseHex(gpsStream[streamPos-3]);
   
@@ -64,11 +67,11 @@ int gps(byte incomingByte){
       if (sum != 0) {
         // bad checksum :(
         streamPos = 0;
-        SerialUSB.println("bad checksum");
+        if (printDiags) SerialUSB.println("bad checksum");
         return false;
       }
       else{
-        SerialUSB.println("good checksum");
+        if (printDiags) SerialUSB.println("good checksum");
       }
     
       // OriginGPS
@@ -112,23 +115,23 @@ int gps(byte incomingByte){
        sscanf(token, "%2d%2d%2d", &gpsHour, &gpsMinute, &gpsSecond);
        
        token = strtok(NULL, s);
-       SerialUSB.println(token);
+       if (printDiags) SerialUSB.println(token);
        sprintf(rmcValid, "%s", token);
        
        token = strtok(NULL, s);
-       SerialUSB.println(token);
+       if (printDiags) SerialUSB.println(token);
        rmcLat = atof(token);
        
        token = strtok(NULL, s);
-       SerialUSB.println(token);
+       if (printDiags) SerialUSB.println(token);
        sprintf(rmcLatHem, "%s", token);
        
        token = strtok(NULL, s);
-       SerialUSB.println(token);
+       if (printDiags) SerialUSB.println(token);
        rmcLon = atof(token);
        
        token = strtok(NULL, s);
-       SerialUSB.println(token);
+       if (printDiags) SerialUSB.println(token);
        sprintf(rmcLonHem, "%s", token);
        
        token = strtok(NULL, s);
@@ -156,11 +159,11 @@ int gps(byte incomingByte){
            longitude = rmcLon;
            latHem = rmcLatHem[0];
            lonHem = rmcLonHem[0];
-           SerialUSB.print("\nLat:"); SerialUSB.println(latitude, 4);
-           SerialUSB.print("Lon:"); SerialUSB.println(longitude, 4);
-           
-           SerialUSB.print("stream:"); SerialUSB.println(gpsStream);
-          
+           if (printDiags){
+             SerialUSB.print("\nLat:"); SerialUSB.println(latitude, 4);
+             SerialUSB.print("Lon:"); SerialUSB.println(longitude, 4);
+             SerialUSB.print("stream:"); SerialUSB.println(gpsStream);
+           }
            goodGPS = 1;
         }
       }
