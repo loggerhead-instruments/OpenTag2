@@ -35,15 +35,16 @@
 //
 // DEV SETTINGS
 //
-float codeVer = 1.0;
+float codeVer = 1.01;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
 int recDur = 60;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
 int skipGPS = 0;
-int logGPS = 0; // if not logging, turn off GPS after get time
+int logGPS = 1; // if not logging, turn off GPS after get time
 long gpsTimeOutThreshold = 60 * 15; //if longer then 15 minutes at start without GPS time, just start
+int spinMeTimeOut = 1000;
 #define HWSERIAL Serial1
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
 //
@@ -201,6 +202,7 @@ char latHem, lonHem;
 int goodGPS = 0;
 long gpsTimeout; //increments every GPRMC line read; about 1 per second
 int gpsYear = 0, gpsMonth = 1, gpsDay = 1, gpsHour = 0, gpsMinute = 0, gpsSecond = 0;
+int gpsStatus = 0; // 0 = standby; 1 = awake
 
 // System Modes and Status
 int mode = 0; //standby = 0; running = 1
@@ -281,30 +283,15 @@ void setup() {
    waitForGPS();
    gpsStatusLogger();
 
-//   // if any data in GPSlogger, download it to microSD
-//   SerialUSB.println();
-//   SerialUSB.println("Dump GPS");
-//   cDisplay();
-//   display.println("Download");
-//   display.println("GPS Log");
-//   display.display();
-//   if(gpsDumpLogger()==1){
-//     // erase data if download was good
-//     SerialUSB.println();
-//     SerialUSB.println("Erase GPS");
-//     gpsEraseLogger();
-//   }
-//
-//  if(logGPS){
-//   // start GPS logger
-//   SerialUSB.println();
-//   SerialUSB.println("Start logging");
-//   gpsStartLogger();
-//   SerialUSB.println();
-//   SerialUSB.println("GPS Status");
-//   gpsStatusLogger();
-//   SerialUSB.println();
-//  }
+  // bump up baud rate
+  gpsFastBaud();
+  waitForGPS();
+  HWSERIAL.begin(115200);
+  delay(1000);
+
+  gpsUpdateRate(2); // update rate (Hz)
+  waitForGPS();
+
    gpsSpewOn();
    cDisplay();
    display.println("GPS Fix");
@@ -335,6 +322,7 @@ void setup() {
   } // skip GPS
   
   if(logGPS==0) gpsOff();
+  gpsStandby();
   
   getTime();
   readVoltage();
@@ -351,15 +339,15 @@ void setup() {
     SerialUSB.print("Burn time set");
     SerialUSB.println(burnTime);
   }
-  if(startTime==0) startTime = t + 10; // wait a couple of seconds if no delay start set from script
+  if(startTime==0) startTime = t + 21; // wait a couple of seconds if no delay start set from script
   SerialUSB.print("Time:"); SerialUSB.println(t);
   SerialUSB.print("Start Time:"); SerialUSB.println(startTime);
   digitalWrite(LED1, LOW);
   digitalWrite(LED2, LOW);
 
-  // wait here 8 seconds so can see settings
+  // wait here so can see settings
   int startWait = millis();
-  while (millis()-startWait < 8000){
+  while (millis()-startWait < 20000){
       t = rtc.getEpoch();
       getTime();
       cDisplay();
@@ -415,18 +403,11 @@ void loop() {
     if (logGPS){
       byte incomingByte;
       while(HWSERIAL.available() > 0) {  
-        digitalWrite(LED_RED, HIGH);  
         incomingByte = HWSERIAL.read();
         gps(incomingByte); // parse incoming GPS data stream
-        SerialUSB.write(incomingByte);        
+        //SerialUSB.write(incomingByte);        
       }
-      digitalWrite(LED_RED, LOW);
     }
-
-    if (goodGPS){
-      goodGPS = 0;
-    }
-
     writeData();
     
     if(t >= endTime){
@@ -566,10 +547,10 @@ void initSensors(){
   SerialUSB.println(mZrange);
 
   long startCalTime = millis();
-  while((mXrange<580) | (mYrange<580) | (mZrange<580) | (millis()-startCalTime<20000)){
+  while((mXrange<580) | (mYrange<580) | (mZrange<580) ){
     if ( digitalRead(MPU_INTERRUPT) == LOW )
     {
-      if((millis() - startCalTime) > 100000) {
+      if((millis() - startCalTime) > spinMeTimeOut) {
         magXoffset = 0;
         magYoffset = 0;
         magZoffset = 0;
@@ -798,7 +779,16 @@ void sampleSensors(void){  //interrupt at update_rate
     calcPressTemp(); // MS58xx pressure and temperature
     incrementPTbufpos(pressure_mbar);
     incrementPTbufpos(temperature);
-    if(depth<1.0) digitalWrite(vhfPow, HIGH);
+    if(depth<1.0) {
+      digitalWrite(vhfPow, HIGH);
+      if(gpsStatus == 0) gpsWake(); // 1ess than 1 meter wake up
+    }
+    else{
+      if((depth>1.5) & (gpsStatus == 1)) {
+        gpsStandby(); // deeper than 1.5 meter go to sleep 
+        digitalWrite(vhfPow, LOW);
+      }
+    }
 
     digitalWrite(LED1, LOW);
     digitalWrite(LED2, LOW);

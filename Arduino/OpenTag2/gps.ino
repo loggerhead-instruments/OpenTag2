@@ -17,6 +17,17 @@
 // turn off output
 #define PMTK_SET_NMEA_OUTPUT_OFF "$PMTK314,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*28"
 
+#define PMTK_BAUD_115200 "$PMTK251,115200*1F"
+#define PMTK_UPDATE_1HZ "$PMTK220,1000*1F"
+#define PMTK_UPDATE_2HZ "$PMTK220,500*2B"
+#define PMTK_UPDATE_5HZ "$PMTK220,200*2C"
+#define PMTK_UPDATE_10HZ "$PMTK220,100*2F"
+
+// send any byte to wake from Standby
+#define PMTK_STANDBY "$PMTK161,0*28"
+#define PMTK_NORMAL "$PMTK225,0*2B"
+#define PMTK_ALWAYSLOCATE_STANDBY "$PMTK225,8*23"
+#define PMTK_ALWAYSLOCATE_BACKUP "$PMTK225,9*22"
 
 #define maxChar 256
 char gpsStream[maxChar];
@@ -30,24 +41,25 @@ int gps(byte incomingByte){
   char temp7[7];
   char temp12[12];
 
-
 // portions modified from Adafruit library
 // https://github.com/adafruit/Adafruit_GPS/blob/master/Adafruit_GPS.cpp
+
+  gpsStream[streamPos] = incomingByte;
+  streamPos++;
+  if(streamPos >= maxChar) streamPos = 0;
+    
   // check for end of a message
-  if(incomingByte=='\n') {
+  if((incomingByte=='\n') & (streamPos>4)) {
     //process last message
-    if (gpsStream[streamPos-4] == '*') {
+    if (gpsStream[streamPos-5] == '*') {    
       SerialUSB.print("Check sum: ");
       SerialUSB.println(gpsStream);
-      uint16_t sum = parseHex(gpsStream[streamPos-3]) * 16;
-      sum += parseHex(gpsStream[streamPos-2]);
-     // SerialUSB.println(sum);
+      uint16_t sum = parseHex(gpsStream[streamPos-4]) * 16;
+      sum += parseHex(gpsStream[streamPos-3]);
   
       // check checksum 
-      for (uint8_t i=1; i < (streamPos-4); i++) {
-      //  SerialUSB.print(gpsStream[i]);
+      for (uint8_t i=1; i < (streamPos-5); i++) {
         sum ^= gpsStream[i];
-      //  SerialUSB.print(sum); SerialUSB.print(" ");
       }
       if (sum != 0) {
         // bad checksum :(
@@ -55,7 +67,10 @@ int gps(byte incomingByte){
         SerialUSB.println("bad checksum");
         return false;
       }
-    }
+      else{
+        SerialUSB.println("good checksum");
+      }
+    
       // OriginGPS
       // $GNRMC,134211.000,A,2715.5428,N,08228.7924,W,1.91,167.64,020816,,,A*62
       // Adafruit GPS
@@ -97,18 +112,23 @@ int gps(byte incomingByte){
        sscanf(token, "%2d%2d%2d", &gpsHour, &gpsMinute, &gpsSecond);
        
        token = strtok(NULL, s);
+       SerialUSB.println(token);
        sprintf(rmcValid, "%s", token);
        
        token = strtok(NULL, s);
+       SerialUSB.println(token);
        rmcLat = atof(token);
        
        token = strtok(NULL, s);
+       SerialUSB.println(token);
        sprintf(rmcLatHem, "%s", token);
        
        token = strtok(NULL, s);
+       SerialUSB.println(token);
        rmcLon = atof(token);
        
        token = strtok(NULL, s);
+       SerialUSB.println(token);
        sprintf(rmcLonHem, "%s", token);
        
        token = strtok(NULL, s);
@@ -138,20 +158,19 @@ int gps(byte incomingByte){
            lonHem = rmcLonHem[0];
            SerialUSB.print("\nLat:"); SerialUSB.println(latitude, 4);
            SerialUSB.print("Lon:"); SerialUSB.println(longitude, 4);
-           if((latitude <1000.0) | (longitude<1000.0)) {
-            SerialUSB.print("stream:"); SerialUSB.println(gpsStream);
-           }
+           
+           SerialUSB.print("stream:"); SerialUSB.println(gpsStream);
+          
            goodGPS = 1;
         }
       }
-
-    // start new message here
+    }
     streamPos = 0;
   }
 
-  gpsStream[streamPos] = incomingByte;
-  streamPos++;
-  if(streamPos >= maxChar) streamPos = 0;
+
+
+  return 1;
 }
 
 
@@ -171,6 +190,7 @@ uint8_t parseHex(char c) {
 }
 
 void gpsStartLogger(){
+  
   HWSERIAL.println(PMTK_LOCUS_STARTLOG);
   waitForGPS();
 }
@@ -191,18 +211,9 @@ void gpsStatusLogger(){
   waitForGPS();
 }
 
-void gpsSleep(){
-  HWSERIAL.println("$PMTK161,0*28");
-  HWSERIAL.flush();
-}
 
 void gpsHibernate(){
   HWSERIAL.println("$PMTK225,4*2F");
-  HWSERIAL.flush();
-}
-
-void gpsWake(){
-  HWSERIAL.println(".");
   HWSERIAL.flush();
 }
 
@@ -212,6 +223,10 @@ void gpsSpewOff(){
 
 void gpsSpewOn(){
   HWSERIAL.println(PMTK_SET_NMEA_OUTPUT_RMCONLY);
+}
+
+void gpsFastBaud(){
+  HWSERIAL.println(PMTK_BAUD_115200);
 }
 
 void waitForGPS(){
@@ -255,3 +270,37 @@ int gpsDumpLogger(){
    }
    return 1;
 }
+
+void gpsUpdateRate(int frequency){
+ if(frequency==1) HWSERIAL.println(PMTK_UPDATE_1HZ);
+ if(frequency==2) HWSERIAL.println(PMTK_UPDATE_2HZ);
+ if(frequency==5) HWSERIAL.println(PMTK_UPDATE_5HZ);
+ if(frequency==10) HWSERIAL.println(PMTK_UPDATE_10HZ);
+}
+
+void gpsStandby(){
+  HWSERIAL.println(PMTK_STANDBY);
+  waitForGPS();
+  gpsStatus = 0;
+}
+
+void gpsWake(){
+  HWSERIAL.println();
+  HWSERIAL.flush();
+  gpsStatus = 1;
+}
+
+void gpsAlwaysLocateStandby(){
+  HWSERIAL.println(PMTK_NORMAL);
+  waitForGPS();
+  HWSERIAL.println(PMTK_ALWAYSLOCATE_STANDBY);
+  waitForGPS();
+}
+
+void gpsAlwaysLocateBackup(){
+  HWSERIAL.println(PMTK_NORMAL);
+  waitForGPS();
+  HWSERIAL.println(PMTK_ALWAYSLOCATE_BACKUP);
+  waitForGPS();
+}
+

@@ -26,17 +26,24 @@ void displaySettings(){
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0, displayLine1);
-  if(mode==0) display.print("Standby");
+  if(mode==0) {
+    display.print("Standby ");
+    display.print(startTime - t);
+    display.println("s");
+  }
   if(mode==1) display.print("Running");
   display.setCursor(0, displayLine2);
-  display.print("Start in: ");
-  display.print(startTime - t);
-  display.println("s");
+  if(burnFlag){
+    display.print("Burn ");
+    display.print(burnSeconds / 3600);
+    display.print("h");
+  }
+
   display.setCursor(0, displayLine3);
-  display.print("Rec:");
+  display.print("Rec ");
   display.print(recDur);
   display.print("s");
-  display.print("  Sleep:");
+  display.print("  Sleep ");
   display.print(recInt);
   display.println("s");
 }
