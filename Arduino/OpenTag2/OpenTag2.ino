@@ -617,7 +617,7 @@ void initSensors(){
     display.println();
     display.print("Turn off and on");
     display.display();
-   // while(1);
+    delay(60000);
   }
 
   cDisplay();
@@ -685,9 +685,15 @@ void initSensors(){
       display.print("Green:"); display.println(islGreen);
       display.print("Blue: "); display.println(islBlue);
       display.display();
-      
       delay(200);
-
+  }
+  if((islRed==0) & (islGreen==0) & (islBlue==0)){
+    cDisplay();
+    display.println("LIGHT SENSOR ERROR");
+    display.println();
+    display.print("Turn off and on");
+    display.display();
+    delay(60000);
   }
 }
 
