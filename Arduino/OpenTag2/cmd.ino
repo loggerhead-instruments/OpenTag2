@@ -131,7 +131,14 @@ int ProcCmd(char *pCmd)
       break;
     }
 
-    // disable GPS
+    // disable GPS for location
+    case ('G' + ('O'<<8)):
+    {
+      logGPS = 0;
+      break;
+    }
+
+    // disable GPS for time and location
     case ('G' + ('D'<<8)):
     {
       skipGPS = 1;
