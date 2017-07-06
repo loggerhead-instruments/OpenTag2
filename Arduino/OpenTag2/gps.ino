@@ -17,6 +17,10 @@
 // turn off output
 #define PMTK_SET_NMEA_OUTPUT_OFF "$PMTK314,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*28"
 
+#define PMTK_BAUD_9600 "$PMTK251,9600*17"
+#define PMTK_BAUD_19200 "$PMTK251,19200*22"
+#define PMTK_BAUD_38400 "$PMTK251,38400*27"
+#define PMTK_BAUD_57600 "$PMTK251,57600*2C"
 #define PMTK_BAUD_115200 "$PMTK251,115200*1F"
 #define PMTK_UPDATE_1HZ "$PMTK220,1000*1F"
 #define PMTK_UPDATE_2HZ "$PMTK220,500*2B"
@@ -228,8 +232,12 @@ void gpsSpewOn(){
   HWSERIAL.println(PMTK_SET_NMEA_OUTPUT_RMCONLY);
 }
 
-void gpsFastBaud(){
-  HWSERIAL.println(PMTK_BAUD_115200);
+void gpsBaud(int baudRate){
+  if (baudRate==9600) HWSERIAL.println(PMTK_BAUD_9600);
+  if (baudRate==19200) HWSERIAL.println(PMTK_BAUD_19200);
+  if (baudRate==38400) HWSERIAL.println(PMTK_BAUD_38400);
+  if (baudRate==57600) HWSERIAL.println(PMTK_BAUD_57600);
+  if (baudRate==115200) HWSERIAL.println(PMTK_BAUD_115200);
 }
 
 void waitForGPS(){
@@ -251,18 +259,16 @@ int gpsDumpLogger(){
       }
    HWSERIAL.println(PMTK_LOCUS_DUMP);
    int dumping = 1;
-   while(endGpsLog==0){
-    digitalWrite(LED1, LOW);
+   for(int n=0; n<1000; n++){
+       delay(5);
+       digitalWrite(LED1, LOW);
        while (HWSERIAL.available() > 0) {    
+        n=0;
         digitalWrite(LED1, HIGH);
         byte incomingByte = HWSERIAL.read();
-        gps(incomingByte);
+        //gps(incomingByte);
         SerialUSB.write(incomingByte);
         logFile.write(incomingByte);
-    }
-    if(gpsTimeout >= gpsTimeOutThreshold) {
-      logFile.close();
-      return 0;
     }
    }
       logFile.close();
@@ -306,4 +312,5 @@ void gpsAlwaysLocateBackup(){
   HWSERIAL.println(PMTK_ALWAYSLOCATE_BACKUP);
   waitForGPS();
 }
+
 

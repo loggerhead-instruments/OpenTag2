@@ -268,19 +268,15 @@ void setup() {
   initSensors();
  
 // GPS configuration
+
   gpsTimeout = 0;
   if(!skipGPS){
    gpsSpewOff();
+   waitForGPS();
    SerialUSB.println();
    SerialUSB.println("GPS Status");
-   waitForGPS();
    gpsStatusLogger();
-
-  // bump up baud rate
-  gpsFastBaud();
-  waitForGPS();
-  HWSERIAL.begin(115200);
-  delay(1000);
+   waitForGPS();
 
    // if any data in GPSlogger, download it to microSD
    SerialUSB.println();
@@ -513,7 +509,7 @@ void initSensors(){
 // Enable all sensors
   imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
   imu.setSampleRate(100); // Set accel/gyro sample rate
-  imu.setCompassSampleRate(25); // Set mag rate to 4Hz
+  imu.setCompassSampleRate(100); // Set mag rate
   // Gyro options are +/- 250, 500, 1000, or 2000 dps
   imu.setGyroFSR(2000); // Set gyro to 2000 dps
   // Accel options are +/- 2, 4, 8, or 16 g
@@ -628,7 +624,7 @@ void initSensors(){
     display.println();
     display.print("Turn off and on");
     display.display();
-    while(1);
+   // while(1);
   }
 
   cDisplay();
@@ -799,10 +795,18 @@ void sampleSensors(void){  //interrupt at update_rate
     incrementPTbufpos(temperature);
     if(depth<1.0) {
       digitalWrite(vhfPow, HIGH);
+      if(gpsStatus==0){
+        gpsWake();
+        gpsStatus=1;
+      }
     }
     else{
       if((depth>1.5)) {
         digitalWrite(vhfPow, LOW);
+        if(gpsStatus==1){
+          gpsStandby();
+          gpsStatus = 0;
+        }
       }
     }
 
