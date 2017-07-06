@@ -31,13 +31,13 @@
 float codeVer = 1.01;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
-int recDur = 600;
+int recDur = 300;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
 int skipGPS = 0; // skip GPS for getting time and lat/lon
 int logGPS = 1; // if not logging, turn off GPS after get time
 long gpsTimeOutThreshold = 60 * 15; //if longer then 15 minutes at start without GPS time, just start
-int spinMeTimeOut = 15000;
+int spinMeTimeOut = 30000;
 #define HWSERIAL Serial1
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
 //
@@ -268,6 +268,7 @@ void setup() {
   initSensors();
  
 // GPS configuration
+//
 
   gpsTimeout = 0;
   if(!skipGPS){
@@ -282,8 +283,9 @@ void setup() {
    SerialUSB.println();
    SerialUSB.println("Dump GPS");
    cDisplay();
-   display.println("Download");
+   
    display.println("GPS Log");
+   display.println("Downloading...");
    display.display();
    if(gpsDumpLogger()==1){
      // erase data if download was good
@@ -411,15 +413,6 @@ void loop() {
   while(mode==1){
     t = rtc.getEpoch();
     
-    // parse GPS stream to update lat/lon
-//    if (logGPS){
-//      byte incomingByte;
-//      while((HWSERIAL.available() > 0)) {  
-//        incomingByte = HWSERIAL.read();
-//        gps(incomingByte); // parse incoming GPS data stream     
-//        if(rtc.getEpoch()-t > 2) break; //timeout
-//      }
-//    }
     writeData();
     
     if(t >= endTime){

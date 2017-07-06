@@ -128,9 +128,6 @@ void writeImu(int lineFeed){
 }
 
 void writeSensors(int halfBuf){
-//  SerialUSB.print("Write buf:");
-//  SerialUSB.println(halfBuf);
-  String sensorLine; // text to write to file
   int iPressure, iRGB, iImu, iTime, iStart, iEnd; //index into buffer
   digitalWrite(LED_RED, LOW); // clear overflow flag
   time2writeIMU = 0;
@@ -153,58 +150,56 @@ void writeSensors(int halfBuf){
 
   int nImuVals = imuSrate/sensorSrate;
   for (int i=iStart; i<iEnd; i+=6){
-    sensorLine="";
     for (int j = 0; j<nImuVals; j++){ // write out imuSrate/sensorSrate (100) lines of IMU for each line of other sensor data
       for (int k = 0; k<9; k++){
-        sensorLine += imuBuffer[iImu];
-        if(k<8) sensorLine += ",";
+        dataFile.print(imuBuffer[iImu]);
+        if(k<8) dataFile.print(',');
         iImu++;
       }
       if((j<nImuVals - 1)) {
-        dataFile.println(sensorLine);  // write line to file unless last line
-        //SerialUSB.println(sensorLine);
-        sensorLine = "";
+        dataFile.println();  // write line to file unless last line
       }
     }
     
-    sensorLine += ","; sensorLine += timeBuffer[iTime];  // year
-    sensorLine += "-"; 
-    if(timeBuffer[iTime+1] < 10) sensorLine += "0";
-    sensorLine += timeBuffer[iTime+1];
-    sensorLine += "-"; 
-    if(timeBuffer[iTime+2] < 10) sensorLine += "0";
-    sensorLine += timeBuffer[iTime+2];
-    sensorLine += "T"; 
-    if(timeBuffer[iTime+3] < 10) sensorLine += "0";
-    sensorLine += timeBuffer[iTime+3];
-    sensorLine += ":"; 
-    if(timeBuffer[iTime+4] < 10) sensorLine += "0";
-    sensorLine += timeBuffer[iTime+4];
-    sensorLine += ":"; 
-    if(timeBuffer[iTime+5] < 10) sensorLine += "0";
-    sensorLine += timeBuffer[iTime+5];
-    sensorLine += "Z";
+    dataFile.print(','); dataFile.print(timeBuffer[iTime]);  
+    dataFile.print('-');
+    if(timeBuffer[iTime+1] < 10) dataFile.print('0');
+    dataFile.print(timeBuffer[iTime+1]);
+    dataFile.print('-');
+    if(timeBuffer[iTime+2] < 10) dataFile.print('0');
+    dataFile.print(timeBuffer[iTime+2]);
+    dataFile.print('T');
+    if(timeBuffer[iTime+3] < 10) dataFile.print('0');
+    dataFile.print(timeBuffer[iTime+3]);
+    dataFile.print(':');
+   if(timeBuffer[iTime+4] < 10) dataFile.print('0');
+   dataFile.print(timeBuffer[iTime+4]);
+   dataFile.print(':');
+   if(timeBuffer[iTime+5] < 10) dataFile.print('0');
+   dataFile.print(timeBuffer[iTime+5]);
+  dataFile.print("Z,");
 
-    sensorLine += ","; sensorLine += RGBbuffer[iRGB];
-    sensorLine += ","; sensorLine += RGBbuffer[iRGB+1];
-    sensorLine += ","; sensorLine += RGBbuffer[iRGB+2];
-    sensorLine += ","; sensorLine += PTbuffer[iPressure];
-    sensorLine += ","; sensorLine += PTbuffer[iPressure+1];
+    dataFile.print(RGBbuffer[iRGB]);
+    dataFile.print(','); dataFile.print(RGBbuffer[iRGB+1]);
+    dataFile.print(','); dataFile.print(RGBbuffer[iRGB+2]);
+    dataFile.print(','); dataFile.print(PTbuffer[iPressure]);
+    dataFile.print(','); dataFile.print(PTbuffer[iPressure+1]);
 
     euler();
-    sensorLine += ","; sensorLine += pitch;
-    sensorLine += ","; sensorLine += roll;
-    sensorLine += ","; sensorLine += yaw;
 
-    sensorLine += ","; sensorLine += String(latitude, 4);
-    sensorLine += ","; sensorLine += latHem;
-    sensorLine += ","; sensorLine += String(longitude, 4);
-    sensorLine += ","; sensorLine += lonHem;
+    dataFile.print(','); dataFile.print(pitch);
+    dataFile.print(','); dataFile.print(roll);
+    dataFile.print(','); dataFile.print(yaw);
+
+    dataFile.print(','); dataFile.print(latitude,4);
+    dataFile.print(','); dataFile.print(latHem);
+    dataFile.print(','); dataFile.print(longitude,4);
+    dataFile.print(','); dataFile.print(lonHem);
 
     readVoltage();
-    sensorLine +=","; sensorLine += voltage;
+    dataFile.print(','); 
+    dataFile.println(voltage,4);
     
-    dataFile.println(sensorLine);
     iPressure += 2;
     iRGB += 3;
     iTime += 6;
