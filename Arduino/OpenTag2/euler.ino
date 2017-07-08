@@ -2,6 +2,11 @@
 
 // simple calculation of pitch, roll, yaw
 void euler(){
+  
+  mag_x -= magXoffset;
+  mag_y -= magYoffset;
+  mag_z -= magZoffset;
+  
   // roll
   float phi = atan2(accel_y, accel_z); // roll in radians
 

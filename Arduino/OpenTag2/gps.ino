@@ -289,7 +289,7 @@ void gpsUpdateRate(int frequency){
 
 void gpsStandby(){
   HWSERIAL.println(PMTK_STANDBY);
-  waitForGPS();
+  HWSERIAL.flush();
   gpsStatus = 0;
 }
 

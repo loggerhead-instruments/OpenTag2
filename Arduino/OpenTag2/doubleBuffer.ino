@@ -128,6 +128,7 @@ void writeImu(int lineFeed){
 }
 
 void writeSensors(int halfBuf){
+  SerialUSB.print("Ws");
   int iPressure, iRGB, iImu, iTime, iStart, iEnd; //index into buffer
   digitalWrite(LED_RED, LOW); // clear overflow flag
   time2writeIMU = 0;
@@ -177,7 +178,7 @@ void writeSensors(int halfBuf){
    dataFile.print(':');
    if(timeBuffer[iTime+5] < 10) dataFile.print('0');
    dataFile.print(timeBuffer[iTime+5]);
-  dataFile.print("Z,");
+   dataFile.print("Z,");
 
     dataFile.print(RGBbuffer[iRGB]);
     dataFile.print(','); dataFile.print(RGBbuffer[iRGB+1]);
@@ -203,6 +204,7 @@ void writeSensors(int halfBuf){
     iPressure += 2;
     iRGB += 3;
     iTime += 6;
+    SerialUSB.println(depth);
   }
 }
 

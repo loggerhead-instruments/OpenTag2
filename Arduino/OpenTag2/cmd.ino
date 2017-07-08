@@ -131,10 +131,10 @@ int ProcCmd(char *pCmd)
       break;
     }
 
-    // disable GPS for location
-    case ('G' + ('O'<<8)):
+    // enable GPS for location
+    case ('G' + ('P'<<8)):
     {
-      logGPS = 0;
+      logGPS = 1;
       break;
     }
 
