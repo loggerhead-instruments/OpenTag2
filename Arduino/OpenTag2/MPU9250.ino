@@ -41,7 +41,7 @@ int mpuInit(boolean mode)
 {
   int ecode;
    if (printDiags) SerialUSB.print("MPU Init\n");
-   I2Cwrite(GyroAddress, 0x6B, 0x08); // reset gyro
+   //I2Cwrite(GyroAddress, 0x6B, 0x08); // reset gyro
    if(mode==0)
   {
      ecode = I2Cwrite(GyroAddress, 0x6B, 0x40);  //Sleep mode, internal 8 MHz oscillator  //another mode is cycle where it wakes up periodically to take a value
@@ -69,7 +69,9 @@ int mpuInit(boolean mode)
     // set sample rate divider
     I2Cwrite(GyroAddress, 0x19, 9);  //  0x31=49=>20Hz; 1kHz/(1+4)=200; divide 1 kHz/(1+9)=100 Hz sample rate for all sensors
     SerialUSB.println("Sample rate divider");
-    
+
+    // enable FIFO
+    I2Cwrite(GyroAddress, 0x23, 0xF9); // enable temp, gyro, accel, slave 0
         // set accel range
     I2Cwrite(GyroAddress, 0x1C, 0x18); // 0x18 =  +/- 16 g  DEFAULT
     if (accel_scale == 2) I2Cwrite(GyroAddress, 0x1C, 0x00); // 2g
@@ -91,8 +93,9 @@ int mpuInit(boolean mode)
 
 
     // setup compass
-    setup_compass();
-    SerialUSB.println("Compass configured");
+    SerialUSB.print("Compass configured: ");
+    SerialUSB.println(setup_compass());
+    
 
     // using FIFO mode to automatically move magnetometer readings
     I2Cwrite(GyroAddress, 0x6A, 0x07); // reset FIFO
@@ -119,7 +122,7 @@ void readImu()
 {
   int i = 0;
   Wire.beginTransmission(GyroAddress); 
-  Wire.write(0x3B);        //sends address to read from  0x3B is direct read; 0x74 is FIFO
+  Wire.write(0x74);        //sends address to read from  0x3B is direct read; 0x74 is FIFO
   Wire.endTransmission(0); //send restart to keep connection alive
   Wire.requestFrom(GyroAddress, 20, 0); //send restart to keep alive
   while(Wire.available()){
@@ -244,10 +247,8 @@ void loadCompassAdjust(){
     SerialUSB.print("Mag Adjust X,Y,Z");
     SerialUSB.println(hAdjX);
     SerialUSB.println(hAdjY);
-    SerialUSB.println(hAdjZ);
-    
+    SerialUSB.println(hAdjZ); 
   }
-  
 }
 
 int intStatus(){

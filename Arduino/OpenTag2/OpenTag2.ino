@@ -31,14 +31,15 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_FeatherOLED.h>
-//#include <SparkFunMPU9250-DMP.h>
+#include <ArduinoLowPower.h>
+
 //
 // DEV SETTINGS
 //
 float codeVer = 1.01;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
-int recDur = 300;
+int recDur = 60;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
 int skipGPS = 1; // skip GPS for getting time and lat/lon
@@ -95,9 +96,6 @@ int spinMeTimeOut = 30000;
 //pin45 PA30 x not defined, used for SWD programming/debug
 //pin46 PA31 x not defined, used for SWD programming/debug
 //pin48 PB3 = digital pin 25
-
-#define CPU_HZ 48000000
-#define TIMER_PRESCALER_DIV 1024
 
 #define displayLine1 0
 #define displayLine2 8
@@ -424,15 +422,35 @@ void loop() {
       fileInit();
       updateTemp();  // get first reading ready
       mode = 1;
-      startTimer((int) imuSrate); // start timer
+      resetGyroFIFO();
       displayOff();
     }
   } // mode = 0
 
   // Recording: check if time to end
+  int downTime = millis();
   while(mode==1){
     t = rtc.getEpoch();
-    writeData();
+
+  // - Test FIFO overflow and not losing track of sensors
+  // - Write FIFO after read (delay 100 ms, read FIFO, write FIFO--every second read other sensors)
+  // - Sleep for x ms, then read and write FIFO
+    int fifoPoints = getImuFifo();
+    if(fifoPoints > 512) digitalWrite(LED_RED, HIGH); // red LED if overflow
+    if(fifoPoints>100){
+      SerialUSB.print(fifoPoints);
+      SerialUSB.print(" ");
+      SerialUSB.println(millis()- downTime);
+      while(fifoPoints>20){
+        sampleSensors();
+        writeData(); // check to see if double buffers ready to be written
+        fifoPoints = getImuFifo();
+      }
+      downTime = millis();
+      //printImu();
+    }   
+    
+  
     if(t >= endTime){
       dataFile.close(); // close file
       if(recInt==0){  // no interval between files
@@ -440,9 +458,11 @@ void loop() {
         fileInit();
         break;
       }
-      stopTimer(); // interval between files
       mode = 0;
       break;
+    }
+    else{  // don't sleep if just made a new file
+      LowPower.sleep(10);
     }
 
     // Check if stop button pressed
@@ -450,7 +470,6 @@ void loop() {
       delay(10); // simple deBounce
       if(digitalRead(BUTTON1)==0){
         digitalWrite(LED_RED, HIGH);
-        stopTimer();
         dataFile.close();
         if(dd){
           displayOn();
@@ -469,7 +488,7 @@ void loop() {
           displayOff();
         }
         fileInit();
-        startTimer((int) imuSrate); // start timer
+        resetGyroFIFO();
         digitalWrite(LED_RED, LOW);
       }
     }
@@ -503,58 +522,28 @@ void initSensors(){
 
   delay(6000);
   
-//  if (imu.begin() != INV_SUCCESS)
-//  {
-//    while (1)
-//    {
-//      SerialUSB.println("Unable to communicate with MPU-9250");
-//      SerialUSB.println("Check connections, and try again.");
-//      SerialUSB.println();
-//      cDisplay();
-//      display.print("MPU: Fail");
-//      display.display();
-//      delay(5000);
-//    }
-//  }
-
-//// Enable all sensors
-//  imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
-//  imu.setSampleRate(100); // Set accel/gyro sample rate
-//  imu.setCompassSampleRate(100); // Set mag rate
-//  // Gyro options are +/- 250, 500, 1000, or 2000 dps
-//  imu.setGyroFSR(2000); // Set gyro to 2000 dps
-//  // Accel options are +/- 2, 4, 8, or 16 g
-//  imu.setAccelFSR(16); // Set accel to +/-2g
-//  
-//  // setLPF() can be used to set the digital low-pass filter
-//  // of the accelerometer and gyroscope.
-//  // Can be any of the following: 188, 98, 42, 20, 10, 5
-//  // (values are in Hz).
-//  imu.setLPF(42); // Set LPF corner frequency to 5Hz
-//
-////  // Use enableInterrupt() to configure the MPU-9250's 
-////  // interrupt output as a "data ready" indicator.
-////  imu.enableInterrupt();
-////
-////  // The interrupt level can either be active-high or low.
-////  // Configure as active-low, since we'll be using the pin's
-////  // internal pull-up resistor.
-////  // Options are INT_ACTIVE_LOW or INT_ACTIVE_HIGH
-////  imu.setIntLevel(INT_ACTIVE_LOW);
-////
-////  // The interrupt can be set to latch until data has
-////  // been read, or to work as a 50us pulse.
-////  // Use latching method -- we'll read from the sensor
-////  // as soon as we see the pin go LOW.
-////  // Options are INT_LATCHED or INT_50US_PULSE
-////  imu.setIntLatched(INT_LATCHED);
-// 
-
-//
-//  //attachInterrupt(MPU_INTERRUPT, mpuInterrupt, FALLING);
-//  //imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
-
   mpuInit(1);
+
+
+
+  resetGyroFIFO();
+  int downTime = millis();
+  int fifoPoints = 0;
+  for(int i=0; i<10; i++){
+    fifoPoints = getImuFifo();
+    if(fifoPoints>200){
+      SerialUSB.println(millis()-downTime);
+      while(fifoPoints>10){
+        readImu();
+        calcImu();
+        fifoPoints = getImuFifo();
+        //printImu();
+      }
+      downTime = millis();
+      printImu();
+    }   
+  }
+
 
  // for getting offset
   int minMagX = mag_x;
@@ -581,12 +570,12 @@ void initSensors(){
         break;
       }
       i++;
-      // Call update() to update the imu objects sensor data.
-      //imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
 
       readImu();
       calcImu();
       euler();
+
+      
        // update min and max Mag
       if (mag_x<minMagX) minMagX = mag_x;
       if (mag_x>maxMagX) maxMagX = mag_x;
@@ -707,6 +696,19 @@ void initSensors(){
   }
 }
 
+void printImu(){
+      SerialUSB.print("a/g/m: \t");
+      SerialUSB.print(accel_x); SerialUSB.print("\t");
+      SerialUSB.print(accel_y); SerialUSB.print("\t");
+      SerialUSB.print(accel_z); SerialUSB.print("\t");
+      SerialUSB.print(gyro_x); SerialUSB.print("\t");
+      SerialUSB.print(gyro_y); SerialUSB.print("\t");
+      SerialUSB.print(gyro_z); SerialUSB.print("\t");
+      SerialUSB.print(mag_x); SerialUSB.print("\t");
+      SerialUSB.print(mag_y); SerialUSB.print("\t");
+      SerialUSB.println(mag_z);
+}
+
 void logFileWrite()
 {
    t = rtc.getEpoch();
@@ -758,22 +760,19 @@ void getTime(){
   second = rtc.getSeconds();
 }
 
-void sampleSensors(void){  //interrupt at update_rate
-  digitalWrite(LED_RED, HIGH);
-  ssCounter++;
+void sampleSensors(void){  
 
-  //imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+  ssCounter++;
   readImu();
   calcImu();
   incrementIMU();
-  digitalWrite(LED_RED, LOW);
 
   // MS58xx start temperature conversion half-way through
   if((ssCounter>=(0.5 * imuSrate / sensorSrate)) & togglePress){ 
     readPress();   
     updateTemp();
     togglePress = 0;
-    SerialUSB.print("t");
+  //  SerialUSB.print("t");
   }
   
   if(ssCounter>=(int)(imuSrate/sensorSrate)){
@@ -782,7 +781,7 @@ void sampleSensors(void){  //interrupt at update_rate
     readTemp();
     updatePress();
     togglePress = 1;
-    SerialUSB.print("p");
+   // SerialUSB.print("p");
 
     // RGB
     islRead(); 
@@ -804,6 +803,8 @@ void sampleSensors(void){  //interrupt at update_rate
     calcPressTemp(); // MS58xx pressure and temperature
     incrementPTbufpos(pressure_mbar);
     incrementPTbufpos(temperature);
+    writeData();
+    
     if(depth<1.0) {
       digitalWrite(vhfPow, HIGH);
       if(logGPS & (gpsStatus==0)){
@@ -830,7 +831,7 @@ void calcImu(){
   accel_y = (int16_t) (((int16_t)imuTempBuffer[2] << 8) | imuTempBuffer[3]);   
   accel_z = (int16_t) -(((int16_t)imuTempBuffer[4] << 8) | imuTempBuffer[5]);    
 
-  //gyro_temp = (int16_t) (((int16_t)imuTempBuffer[6]) << 8 | imuTempBuffer[7]);   
+  gyro_temp = (int16_t) (((int16_t)imuTempBuffer[6]) << 8 | imuTempBuffer[7]);   
  
   gyro_x = (int16_t) (((int16_t)imuTempBuffer[8] << 8) | imuTempBuffer[9]);  
   gyro_y = (int16_t) (((int16_t)imuTempBuffer[10] << 8) | imuTempBuffer[11]);   
@@ -861,65 +862,6 @@ void readVoltage(){
 }
 
 
-/*
-This is a slightly modified version of the timer setup found at:
-https://github.com/maxbader/arduino_tools
- */
-void startTimer(int frequencyHz) {
-  //GCLK->GENCTRL.reg |= GCLK_GENCTRL_ID(0) | GCLK_GENCTRL_RUNSTDBY;
-  REG_GCLK_CLKCTRL = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID (GCM_TCC2_TC3)) ;
-  while ( GCLK->STATUS.bit.SYNCBUSY == 1 );
-
-  TcCount16* TC = (TcCount16*) TC3;
-  TC->CTRLA.reg &= ~TC_CTRLA_ENABLE;
-  //TC->CTRLA.reg |= TC_CTRLA_RUNSTDBY;
-  
-  // Use the 16-bit timer
-  TC->CTRLA.reg |= TC_CTRLA_MODE_COUNT16;
-  while (TC->STATUS.bit.SYNCBUSY == 1);
-
-  // Use match mode so that the timer counter resets when the count matches the compare register
-  TC->CTRLA.reg |= TC_CTRLA_WAVEGEN_MFRQ;
-  while (TC->STATUS.bit.SYNCBUSY == 1);
-
-  // Set prescaler to 1024
-  TC->CTRLA.reg |= TC_CTRLA_PRESCALER_DIV1024;
-  while (TC->STATUS.bit.SYNCBUSY == 1);
-
-  setTimerFrequency(frequencyHz);
-
-  // Enable the compare interrupt
-  TC->INTENSET.reg = 0;
-  TC->INTENSET.bit.MC0 = 1;
-
-  NVIC_EnableIRQ(TC3_IRQn);
-
-  TC->CTRLA.reg |= TC_CTRLA_ENABLE;
-  while (TC->STATUS.bit.SYNCBUSY == 1);
-}
-
-void setTimerFrequency(int frequencyHz) {
-  int compareValue = (CPU_HZ / (TIMER_PRESCALER_DIV * frequencyHz)) - 1;
-  TcCount16* TC = (TcCount16*) TC3;
-  // Make sure the count is in a proportional position to where it was
-  // to prevent any jitter or disconnect when changing the compare value.
-  TC->COUNT.reg = map(TC->COUNT.reg, 0, TC->CC[0].reg, 0, compareValue);
-  TC->CC[0].reg = compareValue;
-  while (TC->STATUS.bit.SYNCBUSY == 1);
-}
-
-void TC3_Handler() {
-  TcCount16* TC = (TcCount16*) TC3;
-  if (TC->INTFLAG.bit.MC0 == 1) {
-    TC->INTFLAG.bit.MC0 = 1;
-    sampleSensors();
-  }
-}
-
-void stopTimer(){
-  // TcCount16* TC = (TcCount16*) TC3; // get timer struct
-   NVIC_DisableIRQ(TC3_IRQn);
-}
 
 void getChipId() {
   volatile uint32_t val1, val2, val3, val4;
