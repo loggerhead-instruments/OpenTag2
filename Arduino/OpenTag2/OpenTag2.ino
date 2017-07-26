@@ -17,6 +17,7 @@
 // 1/min all sensors
 
 // To Do
+// check pitch, roll, yaw
 // Watchdog timer
 // use magnetometer adjustment from chip?
 // adjustable sample rate
@@ -43,8 +44,8 @@ int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
 int skipGPS = 0; // skip GPS for getting time and lat/lon
 int logGPS = 0; // if not logging, turn off GPS after get time
-long gpsTimeOutThreshold = 60 * 15; //if longer then 15 minutes at start without GPS time, just start
-int spinMeTimeOut = 30000;
+long gpsTimeOutThreshold = 30 * 15; //if longer then 15 minutes at start without GPS time, just start
+int spinMeTimeOut = 60000;
 #define HWSERIAL Serial1
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
 //
@@ -397,14 +398,10 @@ void loop() {
   } // mode = 0
 
   // Recording: check if time to end
-  int downTime = millis();
+  // int downTime = millis();
   while(mode==1){
     t = rtc.getEpoch();
     int fifoBytes = getImuFifo();
-//      cDisplay();
-//      display.print(fifoBytes);
-//      display.display();
-    
     if(fifoBytes == 512) {  // overflow
       digitalWrite(LED_RED, HIGH); 
       dataFile.println();  // log overflow to file
@@ -412,12 +409,12 @@ void loop() {
       resetGyroFIFO();
     }
     if(fifoBytes>200){
-      SerialUSB.println(millis() - downTime);
+   //   SerialUSB.println(millis() - downTime);
       while(fifoBytes>20){
         sampleSensors();
         fifoBytes = getImuFifo();
       }
-      downTime = millis();
+   //   downTime = millis();
     }   
     digitalWrite(LED_RED, LOW);
     
@@ -570,9 +567,9 @@ void initSensors(){
       display.print(mXrange); display.print(" ");
       display.print(mYrange); display.print(" ");
       display.println(mZrange);
-      display.print(pitch); display.print(" ");
-      display.print(roll); display.print(" "); 
-      display.print(yaw);
+      display.print(mag_x); display.print(" ");
+      display.print(mag_y); display.print(" "); 
+      display.print(mag_z);
       display.display();
       
     magXoffset = ((maxMagX - minMagX) / 2) + minMagX;
@@ -602,7 +599,7 @@ void initSensors(){
   cDisplay();
   display.println("Gyro Offset");
   display.println();
-  display.println("Place tag flat");
+  display.println("PLACE TAG FLAT");
   display.display();
   delay(displayDelay);
   
@@ -613,7 +610,9 @@ void initSensors(){
     fileWriteImu(1);
     cDisplay();
     display.println("DO NOT MOVE");
-    display.println();
+    display.print(pitch); display.print(" ");
+    display.print(roll); display.print(" "); 
+    display.println(yaw);
     display.print("A:");
     display.print(accel_x); display.print(" ");
     display.print(accel_y); display.print(" ");
@@ -842,32 +841,20 @@ void sampleSensors(void){
 }
 
 void calcImu(){
-  accel_x = (int16_t) (((int16_t)imuTempBuffer[0] << 8) | imuTempBuffer[1]);    
+  // NED orientation
+  accel_x = (int16_t) -(((int16_t)imuTempBuffer[0] << 8) | imuTempBuffer[1]);    
   accel_y = (int16_t) (((int16_t)imuTempBuffer[2] << 8) | imuTempBuffer[3]);   
-  accel_z = (int16_t) -(((int16_t)imuTempBuffer[4] << 8) | imuTempBuffer[5]);    
+  accel_z = (int16_t) (((int16_t)imuTempBuffer[4] << 8) | imuTempBuffer[5]);    
 
   gyro_temp = (int16_t) (((int16_t)imuTempBuffer[6]) << 8 | imuTempBuffer[7]);   
  
   gyro_x = (int16_t) (((int16_t)imuTempBuffer[8] << 8) | imuTempBuffer[9]);  
-  gyro_y = (int16_t) (((int16_t)imuTempBuffer[10] << 8) | imuTempBuffer[11]);   
-  gyro_z = (int16_t) -(((int16_t)imuTempBuffer[12] << 8) | imuTempBuffer[13]);  
+  gyro_y = -(int16_t) (((int16_t)imuTempBuffer[10] << 8) | imuTempBuffer[11]);   
+  gyro_z = -(int16_t) (((int16_t)imuTempBuffer[12] << 8) | imuTempBuffer[13]);  
   
-  mag_y = (int16_t)  (((int16_t)imuTempBuffer[14] << 8) | imuTempBuffer[15]);   
-  mag_x = (int16_t)  (((int16_t)imuTempBuffer[16] << 8) | imuTempBuffer[17]);     
+  mag_y = (int16_t) -(((int16_t)imuTempBuffer[14] << 8) | imuTempBuffer[15]);   
+  mag_x = (int16_t) (((int16_t)imuTempBuffer[16] << 8) | imuTempBuffer[17]);     
   mag_z = (int16_t) (((int16_t)imuTempBuffer[18] << 8) | imuTempBuffer[19]); 
-
-// NED orientation
-
-//  gyro_x = imu.gx;
-//  gyro_y = imu.gy;
-//  gyro_z = -imu.gz;
-//  accel_x = imu.ax;
-//  accel_y = imu.ay;
-//  accel_z = -imu.az;
-//  mag_x = imu.my - magYoffset;
-//  mag_y = imu.mx - magXoffset;
-//  mag_z = imu.mz - magZoffset;
-  
 }
 
 void readVoltage(){
