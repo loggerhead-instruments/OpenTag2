@@ -118,7 +118,7 @@ byte I2Cwrite(byte addr, byte reg, byte val)
   return ecode;
 }
 
-void readImu(int address)
+void readImu(byte address)
 {
   int i = 0;
   Wire.beginTransmission(GyroAddress); 
@@ -149,19 +149,16 @@ int getImuFifo()
 {
  int fifopts; 
   // read FIFO size
-//  Wire.beginTransmission(GyroAddress); 
-//  Wire.write(0x3B);        //sends address to read from
-//  Wire.endTransmission(); //end transmission
     
   Wire.beginTransmission(GyroAddress); 
   Wire.write(0x72);        //sends address to read from
   Wire.endTransmission(); //end transmission
-  Wire.requestFrom(GyroAddress, 2);    // request 6 bytes from device
+  Wire.requestFrom(GyroAddress, 2);   
   
   byte FIFO_CNT[2];
   int i=0;
  
-  while(Wire.available())   // ((Wire.available())&&(i<6))
+  while(Wire.available()) 
   { 
     FIFO_CNT[i]= Wire.read();  // receive one byte
     i++;
