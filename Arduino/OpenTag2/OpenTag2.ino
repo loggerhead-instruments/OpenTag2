@@ -18,7 +18,8 @@
 
 // To Do
 // Watchdog timer
-// use magnetometer correction
+// use magnetometer adjustment from chip?
+// adjustable sample rate
 
 #include <time.h>
 #include <Wire.h>
@@ -36,8 +37,8 @@
 float codeVer = 1.01;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
-int displayDelay = 3000; // ms to delay so can read messages on display
-int recDur = 60;
+int displayDelay = 10000; // ms to delay so can read messages on display
+int recDur = 600;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
 int skipGPS = 0; // skip GPS for getting time and lat/lon
@@ -391,7 +392,7 @@ void loop() {
       mode = 1;
       
       resetGyroFIFO();
-     // displayOff();
+      displayOff();
     }
   } // mode = 0
 
@@ -400,9 +401,9 @@ void loop() {
   while(mode==1){
     t = rtc.getEpoch();
     int fifoBytes = getImuFifo();
-      cDisplay();
-      display.print(fifoBytes);
-      display.display();
+//      cDisplay();
+//      display.print(fifoBytes);
+//      display.display();
     
     if(fifoBytes == 512) {  // overflow
       digitalWrite(LED_RED, HIGH); 
@@ -786,7 +787,6 @@ void getTime(){
 }
 
 void sampleSensors(void){  
-  digitalWrite(LED1, HIGH);
   ssCounter++;
   readImu(FIFO_ADDR);
   calcImu();
