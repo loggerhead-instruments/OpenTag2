@@ -20,8 +20,6 @@
 // Watchdog timer
 // record no motion file at beginning for accelerometer and gyro offsets
 // save spin me file
-// check priority of imu timer interrupt (dropping samples during file write)?
-// --branch--try FIFO mode with interrupt
 
 #include <time.h>
 #include <Wire.h>
@@ -131,51 +129,18 @@ byte Pbuff[3];
 volatile float depth, temperature, pressure_mbar;
 boolean togglePress = 0; // flag to toggle conversion of temperature and pressure
 
-// Pressure/Temp and RGB sensor buffers need to sample so they full half-buf at same time
-// because writing to file is only done by checking Pressure/Temp
-// Pressure, Temp double buffer
-#define PTBUFFERSIZE 4
-volatile float PTbuffer[PTBUFFERSIZE];
-byte time2writePT = 0; 
-volatile byte bufferposPT=0;
-byte halfbufPT = PTBUFFERSIZE/2;
-boolean firstwrittenPT;
 
 // RGB
 int16_t islRed;
 int16_t islBlue;
 int16_t islGreen;
 
-// RGB buffer
-// RGBBUFFERSIZE = 2 * 3 channels * 1/sec
-#define RGBBUFFERSIZE 6
-volatile int16_t RGBbuffer[RGBBUFFERSIZE];
-byte time2writeRGB=0; 
-int RGBCounter = 0;
-volatile byte bufferposRGB=0;
-byte halfbufRGB = RGBBUFFERSIZE/2;
-boolean firstwrittenRGB;
-
-// YEAR, MONTH, DAY, HOUR, MINUTE, SECOND
-// TIMEBUFFERSIZE = 2 * 6 * 1/sec
-#define TIMEBUFFERSIZE 12
-volatile int16_t timeBuffer[TIMEBUFFERSIZE];
-volatile byte bufferposTime = 0;
-byte halfbufTime = TIMEBUFFERSIZE / 2;
-boolean firstwrittenTime;
 
 // IMU
 //MPU9250_DMP imu;
 // IMUBUFFERSIZE = 2 * 9 channels * 100 / sec
 #define FIFO_ADDR (0x74)
 #define SENSOR_ADDR (0x3B)
-#define IMUBUFFERSIZE 1800 
-volatile int16_t imuBuffer[IMUBUFFERSIZE]; // buffer used to store IMU sensor data before writes in bytes
-volatile byte time2writeIMU=0; 
-volatile int IMUCounter = 0;
-volatile int bufferposIMU = 0;
-int halfbufIMU = IMUBUFFERSIZE/2;
-volatile boolean firstwrittenIMU;
 volatile uint8_t imuTempBuffer[22];
 int16_t accel_x;
 int16_t accel_y;
