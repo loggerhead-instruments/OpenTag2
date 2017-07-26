@@ -18,8 +18,7 @@
 
 // To Do
 // Watchdog timer
-// record no motion file at beginning for accelerometer and gyro offsets
-// save spin me file
+// use magnetometer correction
 
 #include <time.h>
 #include <Wire.h>
@@ -37,14 +36,14 @@
 float codeVer = 1.01;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
-int displayDelay = 1000; // ms to delay so can read messages to read
+int displayDelay = 3000; // ms to delay so can read messages on display
 int recDur = 60;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
-int skipGPS = 1; // skip GPS for getting time and lat/lon
+int skipGPS = 0; // skip GPS for getting time and lat/lon
 int logGPS = 0; // if not logging, turn off GPS after get time
 long gpsTimeOutThreshold = 60 * 15; //if longer then 15 minutes at start without GPS time, just start
-int spinMeTimeOut = 3000;
+int spinMeTimeOut = 30000;
 #define HWSERIAL Serial1
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
 //
@@ -529,16 +528,12 @@ void initSensors(){
   SerialUSB.println(mYrange);
   SerialUSB.println(mZrange);
 
+  spinFileOpen();  //save spinning data to file
   long startCalTime = millis();
-  while((mXrange<580) | (mYrange<580) | (mZrange<580) ){
-      if((millis() - startCalTime) > spinMeTimeOut) {
-        break;
-      }
-      i++;
-
+  while((millis() - startCalTime) < spinMeTimeOut){
       readImu(SENSOR_ADDR);
       calcImu();
-      euler();
+      fileWriteImu(1);
 
        // update min and max Mag
       if (mag_x<minMagX) minMagX = mag_x;
@@ -582,9 +577,8 @@ void initSensors(){
     magXoffset = ((maxMagX - minMagX) / 2) + minMagX;
     magYoffset = ((maxMagY - minMagY) / 2) + minMagY;
     magZoffset = ((maxMagZ - minMagZ) / 2) + minMagZ;
-
-    delay(5);
   }
+  dataFile.close();
 
   if((mag_z==0) & (mag_x==0) & (mag_y==0)){
     cDisplay();
@@ -603,32 +597,33 @@ void initSensors(){
   display.display();
   delay(displayDelay);
 
-  for(int i=1; i<100; i++){
-      readImu(SENSOR_ADDR);
-      calcImu();
-      euler();
-      if(printDiags){
-        SerialUSB.print(pitch); SerialUSB.print("\t");
-        SerialUSB.print(roll); SerialUSB.print("\t");
-        SerialUSB.println(yaw); 
-      }
-      cDisplay();
-      display.println("  ");
-      display.print("A:");
-      display.print(accel_x); display.print(" ");
-      display.print(accel_y); display.print(" ");
-      display.println(accel_z);
-      display.print("M:");
-      display.print(mag_x); display.print(" ");
-      display.print(mag_y); display.print(" ");
-      display.println(mag_z);
-      display.print(pitch); display.print(" ");
-      display.print(roll); display.print(" "); 
-      display.print(yaw);
-      display.display();
-    
-    delay(50);
+  // record file where tag is flat and motionless
+  cDisplay();
+  display.println("Gyro Offset");
+  display.println();
+  display.println("Place tag flat");
+  display.display();
+  delay(displayDelay);
+  
+  flatFileOpen();
+  for(int i=1; i<1000; i++){
+    readImu(SENSOR_ADDR);
+    calcImu();
+    fileWriteImu(1);
+    cDisplay();
+    display.println("DO NOT MOVE");
+    display.println();
+    display.print("A:");
+    display.print(accel_x); display.print(" ");
+    display.print(accel_y); display.print(" ");
+    display.println(accel_z);
+    display.print("G:");
+    display.print(gyro_x); display.print(" ");
+    display.print(gyro_y); display.print(" ");
+    display.println(gyro_z);
+    display.display(); 
   }
+  dataFile.close();
   
   // RGB
   SerialUSB.print("RGBinit: ");
@@ -670,7 +665,7 @@ void printImu(){
       SerialUSB.println(mag_z);
 }
 
-void fileWriteImu(){
+void fileWriteImu(int lineFeed){
   dataFile.print(accel_x); dataFile.print(",");
   dataFile.print(accel_y); dataFile.print(",");
   dataFile.print(accel_z); dataFile.print(",");
@@ -685,6 +680,8 @@ void fileWriteImu(){
   dataFile.print(','); dataFile.print(pitch);
   dataFile.print(','); dataFile.print(roll);
   dataFile.print(','); dataFile.print(yaw);
+
+  if(lineFeed) dataFile.println();
 }
 
 void fileWriteSlowSensors(){
@@ -742,6 +739,23 @@ void logFileWrite()
    logFile.close();
 }
 
+void spinFileOpen()
+{
+   t = rtc.getEpoch();
+   getTime();
+   dataFile = sd.open("spin.csv", O_WRITE | O_CREAT);
+   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,pitch,roll,yaw");
+   SdFile::dateTimeCallback(file_date_time);
+}
+
+void flatFileOpen()
+{
+   t = rtc.getEpoch();
+   getTime();
+   dataFile = sd.open("flat.csv", O_WRITE | O_CREAT);
+   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,pitch,roll,yaw");
+   SdFile::dateTimeCallback(file_date_time);
+}
 
 void fileInit()
 {
@@ -776,7 +790,7 @@ void sampleSensors(void){
   ssCounter++;
   readImu(FIFO_ADDR);
   calcImu();
-  fileWriteImu();
+  fileWriteImu(0);
  
   // MS58xx start temperature conversion half-way through
   if((ssCounter>=(0.5 * imuSrate / sensorSrate)) & togglePress){ 
