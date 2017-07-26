@@ -71,11 +71,11 @@ int gps(byte incomingByte){
       if (sum != 0) {
         // bad checksum :(
         streamPos = 0;
-        if (printDiags) SerialUSB.println("bad checksum");
+       // if (printDiags) SerialUSB.println("bad checksum");
         return false;
       }
       else{
-        if (printDiags) SerialUSB.println("good checksum");
+      //  if (printDiags) SerialUSB.println("good checksum");
       }
     
       // OriginGPS

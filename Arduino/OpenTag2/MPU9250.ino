@@ -118,11 +118,11 @@ byte I2Cwrite(byte addr, byte reg, byte val)
   return ecode;
 }
 
-void readImu()
+void readImu(int address)
 {
   int i = 0;
   Wire.beginTransmission(GyroAddress); 
-  Wire.write(0x74);        //sends address to read from  0x3B is direct read; 0x74 is FIFO
+  Wire.write(address);        //sends address to read from  0x3B is direct read; 0x74 is FIFO
   Wire.endTransmission(0); //send restart to keep connection alive
   Wire.requestFrom(GyroAddress, 20, 0); //send restart to keep alive
   while(Wire.available()){
