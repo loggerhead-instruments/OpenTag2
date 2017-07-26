@@ -39,14 +39,13 @@
 float codeVer = 1.01;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
-int displayDelay = 1000; // ms to delay so can read messages to read
 int recDur = 60;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
 int skipGPS = 1; // skip GPS for getting time and lat/lon
 int logGPS = 0; // if not logging, turn off GPS after get time
 long gpsTimeOutThreshold = 60 * 15; //if longer then 15 minutes at start without GPS time, just start
-int spinMeTimeOut = 3000;
+int spinMeTimeOut = 30000;
 #define HWSERIAL Serial1
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
 //
@@ -167,8 +166,6 @@ boolean firstwrittenTime;
 // IMU
 //MPU9250_DMP imu;
 // IMUBUFFERSIZE = 2 * 9 channels * 100 / sec
-#define FIFO_ADDR (0x74)
-#define SENSOR_ADDR (0x3B)
 #define IMUBUFFERSIZE 1800 
 volatile int16_t imuBuffer[IMUBUFFERSIZE]; // buffer used to store IMU sensor data before writes in bytes
 volatile byte time2writeIMU=0; 
@@ -374,7 +371,7 @@ void setup() {
     SerialUSB.print("Burn time set");
     SerialUSB.println(burnTime);
   }
-  if(startTime==0) startTime = t + (displayDelay/1000) + 1; 
+  if(startTime==0) startTime = t + 21; // wait a couple of seconds if no delay start set from script
   SerialUSB.print("Time:"); SerialUSB.println(t);
   SerialUSB.print("Start Time:"); SerialUSB.println(startTime);
   digitalWrite(LED1, LOW);
@@ -382,20 +379,20 @@ void setup() {
 
   // wait here so can see settings
   int startWait = millis();
-  while (millis()-startWait < displayDelay){
+  while (millis()-startWait < 20000){
       t = rtc.getEpoch();
       getTime();
       cDisplay();
       displaySettings();
       displayClock(displayLine4);
       display.display();
-      delay(200);
+      delay(500);
   }
 
   cDisplay();
   display.print("Display Off");
   display.display();
-  delay(displayDelay);
+  delay(1000);
 }
 
 void loop() {
@@ -425,9 +422,8 @@ void loop() {
       fileInit();
       updateTemp();  // get first reading ready
       mode = 1;
-      
       resetGyroFIFO();
-     // displayOff();
+      displayOff();
     }
   } // mode = 0
 
@@ -435,28 +431,27 @@ void loop() {
   int downTime = millis();
   while(mode==1){
     t = rtc.getEpoch();
-    int fifoBytes = getImuFifo();
-      cDisplay();
-      display.print(fifoBytes);
-      display.display();
-    
-    if(fifoBytes == 512) {  // overflow
-      digitalWrite(LED_RED, HIGH); 
-      dataFile.println();  // log overflow to file
-      dataFile.println("Reset IMU");
-      resetGyroFIFO();
-    }
-    if(fifoBytes>200){
-      SerialUSB.println(millis() - downTime);
-      while(fifoBytes>20){
+
+  // - Test FIFO overflow and not losing track of sensors
+  // - Write FIFO after read (delay 100 ms, read FIFO, write FIFO--every second read other sensors)
+  // - Sleep for x ms, then read and write FIFO
+    int fifoPoints = getImuFifo();
+    if(fifoPoints > 512) digitalWrite(LED_RED, HIGH); // red LED if overflow
+    if(fifoPoints>100){
+      SerialUSB.print(fifoPoints);
+      SerialUSB.print(" ");
+      SerialUSB.println(millis()- downTime);
+      while(fifoPoints>20){
         sampleSensors();
-        fifoBytes = getImuFifo();
+        writeData(); // check to see if double buffers ready to be written
+        fifoPoints = getImuFifo();
       }
       downTime = millis();
+      //printImu();
     }   
-    digitalWrite(LED_RED, LOW);
     
-    if(t>=endTime){
+  
+    if(t >= endTime){
       dataFile.close(); // close file
       if(recInt==0){  // no interval between files
         endTime += recDur;  // update end time
@@ -467,7 +462,7 @@ void loop() {
       break;
     }
     else{  // don't sleep if just made a new file
-     //  LowPower.sleep(10);
+      LowPower.sleep(10);
     }
 
     // Check if stop button pressed
@@ -525,28 +520,30 @@ void initSensors(){
   display.print("Temp:"); display.println(temperature);
   display.display();
 
-  delay(displayDelay);
+  delay(6000);
   
   mpuInit(1);
+
+
+
   resetGyroFIFO();
   int downTime = millis();
-  int fifoBytes = 0;
-  int i = 0;
-  while(i< 10){
-    fifoBytes = getImuFifo();
-    if(fifoBytes>200){
-      i++;
+  int fifoPoints = 0;
+  for(int i=0; i<10; i++){
+    fifoPoints = getImuFifo();
+    if(fifoPoints>200){
       SerialUSB.println(millis()-downTime);
-      while(fifoBytes>20){
-        readImu(FIFO_ADDR);
+      while(fifoPoints>10){
+        readImu();
         calcImu();
-        fifoBytes = getImuFifo();
-        printImu();
+        fifoPoints = getImuFifo();
+        //printImu();
       }
       downTime = millis();
       printImu();
     }   
   }
+
 
  // for getting offset
   int minMagX = mag_x;
@@ -555,7 +552,7 @@ void initSensors(){
   int maxMagY = mag_y;
   int minMagZ = mag_z;
   int maxMagZ = mag_z;
-  i=0; 
+  int i=0; 
   int mXrange = maxMagX - minMagX;
   int mYrange = maxMagY - minMagY;
   int mZrange = maxMagZ - minMagZ;
@@ -567,14 +564,18 @@ void initSensors(){
   long startCalTime = millis();
   while((mXrange<580) | (mYrange<580) | (mZrange<580) ){
       if((millis() - startCalTime) > spinMeTimeOut) {
+        magXoffset = 0;
+        magYoffset = 0;
+        magZoffset = 0;
         break;
       }
       i++;
 
-      readImu(SENSOR_ADDR);
+      readImu();
       calcImu();
       euler();
 
+      
        // update min and max Mag
       if (mag_x<minMagX) minMagX = mag_x;
       if (mag_x>maxMagX) maxMagX = mag_x;
@@ -618,7 +619,7 @@ void initSensors(){
     magYoffset = ((maxMagY - minMagY) / 2) + minMagY;
     magZoffset = ((maxMagZ - minMagZ) / 2) + minMagZ;
 
-    delay(5);
+    delay(8);
   }
 
   if((mag_z==0) & (mag_x==0) & (mag_y==0)){
@@ -636,10 +637,13 @@ void initSensors(){
   display.print("Y "); display.println(magYoffset); 
   display.print("Z "); display.print(magZoffset); 
   display.display();
-  delay(displayDelay);
+  delay(10000);
 
   for(int i=1; i<100; i++){
-      readImu(SENSOR_ADDR);
+    if ( digitalRead(MPU_INTERRUPT) == LOW )
+    {
+      //imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+      readImu();
       calcImu();
       euler();
       if(printDiags){
@@ -661,7 +665,7 @@ void initSensors(){
       display.print(roll); display.print(" "); 
       display.print(yaw);
       display.display();
-    
+    }
     delay(50);
   }
   
@@ -705,56 +709,6 @@ void printImu(){
       SerialUSB.println(mag_z);
 }
 
-void fileWriteImu(){
-  dataFile.print(accel_x); dataFile.print(",");
-  dataFile.print(accel_y); dataFile.print(",");
-  dataFile.print(accel_z); dataFile.print(",");
-  dataFile.print(gyro_x); dataFile.print(",");
-  dataFile.print(gyro_y); dataFile.print(",");
-  dataFile.print(gyro_z); dataFile.print(",");
-  dataFile.print(mag_x); dataFile.print(",");
-  dataFile.print(mag_y); dataFile.print(",");
-  dataFile.print(mag_z);
-     
-  euler();
-  dataFile.print(','); dataFile.print(pitch);
-  dataFile.print(','); dataFile.print(roll);
-  dataFile.print(','); dataFile.print(yaw);
-}
-
-void fileWriteSlowSensors(){
-   dataFile.print(','); dataFile.print(year);  
-    dataFile.print('-');
-    if(month < 10) dataFile.print('0');
-    dataFile.print(month);
-    dataFile.print('-');
-    if(day < 10) dataFile.print('0');
-    dataFile.print(day);
-    dataFile.print('T');
-    if(hour) dataFile.print('0');
-    dataFile.print(hour);
-    dataFile.print(':');
-   if(minute < 10) dataFile.print('0');
-   dataFile.print(minute);
-   dataFile.print(':');
-   if(second < 10) dataFile.print('0');
-   dataFile.print(second);
-   dataFile.print("Z,");
-    dataFile.print(islRed);
-    dataFile.print(','); dataFile.print(islGreen);
-    dataFile.print(','); dataFile.print(islBlue);
-    dataFile.print(','); dataFile.print(pressure_mbar);
-    dataFile.print(','); dataFile.print(temperature);
-    dataFile.print(','); dataFile.print(latitude,4);
-    dataFile.print(','); dataFile.print(latHem);
-    dataFile.print(','); dataFile.print(longitude,4);
-    dataFile.print(','); dataFile.print(lonHem);
-
-    readVoltage();
-    dataFile.print(','); 
-    dataFile.print(voltage,4);
-}
-
 void logFileWrite()
 {
    t = rtc.getEpoch();
@@ -792,7 +746,7 @@ void fileInit()
     SerialUSB.println(filename);
     delay(100);
    }
-   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,pitch,roll,yaw,datetime,red,green,blue,pressure(mBar),temperature,latitude,latHem,longitude,lonHem,V");
+   dataFile.println("accelX,accelY,accelZ,gyroX,gyroY,gyroZ,magX,magY,magZ,datetime,red,green,blue,pressure(mBar),temperature,pitch,roll,yaw,latitude,latHem,longitude,lonHem,V");
    SdFile::dateTimeCallback(file_date_time);
    SerialUSB.println(filename);
 }
@@ -807,38 +761,49 @@ void getTime(){
 }
 
 void sampleSensors(void){  
-  digitalWrite(LED1, HIGH);
+
   ssCounter++;
-  readImu(FIFO_ADDR);
+  readImu();
   calcImu();
-  fileWriteImu();
- 
+  incrementIMU();
+
   // MS58xx start temperature conversion half-way through
   if((ssCounter>=(0.5 * imuSrate / sensorSrate)) & togglePress){ 
     readPress();   
     updateTemp();
     togglePress = 0;
+  //  SerialUSB.print("t");
   }
   
   if(ssCounter>=(int)(imuSrate/sensorSrate)){
     ssCounter = 0;
-    if(led2en) {
-      digitalWrite(LED1, HIGH);
-      digitalWrite(LED2, HIGH);
-    }
-    
     // MS58xx pressure and temperature
     readTemp();
     updatePress();
     togglePress = 1;
+   // SerialUSB.print("p");
 
     // RGB
     islRead(); 
+    incrementRGBbufpos(islRed);
+    incrementRGBbufpos(islGreen);
+    incrementRGBbufpos(islBlue);
+
+    SerialUSB.print("l");
+
     getTime();
+    incrementTimebufpos();
     checkBurn();
 
+    SerialUSB.print("b");
+
+    if(led2en) digitalWrite(LED1, HIGH);
+    if(led2en) digitalWrite(LED2, HIGH);
+  
     calcPressTemp(); // MS58xx pressure and temperature
-    fileWriteSlowSensors();
+    incrementPTbufpos(pressure_mbar);
+    incrementPTbufpos(temperature);
+    writeData();
     
     if(depth<1.0) {
       digitalWrite(vhfPow, HIGH);
@@ -856,10 +821,9 @@ void sampleSensors(void){
         }
       }
     }
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
   }
-  digitalWrite(LED1, LOW);
-  digitalWrite(LED2, LOW);
-  dataFile.println();
 }
 
 void calcImu(){
