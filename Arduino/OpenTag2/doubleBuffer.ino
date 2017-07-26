@@ -206,7 +206,7 @@ void writeSensors(int halfBuf){
     iPressure += 2;
     iRGB += 3;
     iTime += 6;
-    SerialUSB.println(depth);
+
     digitalWrite(LED1, LOW);
     digitalWrite(LED2, LOW);
   }

@@ -20,8 +20,8 @@
 // Watchdog timer
 // record no motion file at beginning for accelerometer and gyro offsets
 // save spin me file
-// check priority of imu timer interrupt (dropping samples during file write)?
-// --branch--try FIFO mode with interrupt
+// pitch, roll, yaw on every sample
+// check roll (proper NED orientation)
 
 #include <time.h>
 #include <Wire.h>
@@ -117,6 +117,9 @@ char myID[33]; // ATSAM chipID
 //
 int imuSrate = 100; // must be integer for timer. If change sample rate, need to adjust buffer size
 int sensorSrate = 1; // must divide into imuSrate. If change sample rate, need to adjust buffer size
+
+#define FIFO_REG (0x74)   //sends address to read from  0x3B is direct read; 0x74 is 
+#define IMU_REG (0x3B)
 
 //Pressure and temp calibration coefficients
 uint16_t PSENS; //pressure sensitivity
@@ -431,19 +434,19 @@ void loop() {
   int downTime = millis();
   while(mode==1){
     t = rtc.getEpoch();
-
-  // - Test FIFO overflow and not losing track of sensors
-  // - Write FIFO after read (delay 100 ms, read FIFO, write FIFO--every second read other sensors)
-  // - Sleep for x ms, then read and write FIFO
     int fifoPoints = getImuFifo();
-    if(fifoPoints > 512) digitalWrite(LED_RED, HIGH); // red LED if overflow
+    if(fifoPoints==512) {
+      digitalWrite(LED_RED, HIGH); // red LED if overflow
+      dataFile.println();
+      dataFile.println("IMU reset");
+      resetGyroFIFO();
+    }
     if(fifoPoints>100){
       SerialUSB.print(fifoPoints);
       SerialUSB.print(" ");
       SerialUSB.println(millis()- downTime);
       while(fifoPoints>20){
         sampleSensors();
-        writeData(); // check to see if double buffers ready to be written
         fifoPoints = getImuFifo();
       }
       downTime = millis();
@@ -462,7 +465,7 @@ void loop() {
       break;
     }
     else{  // don't sleep if just made a new file
-      LowPower.sleep(10);
+      //LowPower.sleep(10);
     }
 
     // Check if stop button pressed
@@ -524,8 +527,6 @@ void initSensors(){
   
   mpuInit(1);
 
-
-
   resetGyroFIFO();
   int downTime = millis();
   int fifoPoints = 0;
@@ -534,7 +535,7 @@ void initSensors(){
     if(fifoPoints>200){
       SerialUSB.println(millis()-downTime);
       while(fifoPoints>10){
-        readImu();
+        readImu(FIFO_REG);
         calcImu();
         fifoPoints = getImuFifo();
         //printImu();
@@ -543,7 +544,6 @@ void initSensors(){
       printImu();
     }   
   }
-
 
  // for getting offset
   int minMagX = mag_x;
@@ -571,10 +571,9 @@ void initSensors(){
       }
       i++;
 
-      readImu();
+      readImu(IMU_REG);
       calcImu();
       euler();
-
       
        // update min and max Mag
       if (mag_x<minMagX) minMagX = mag_x;
@@ -642,8 +641,7 @@ void initSensors(){
   for(int i=1; i<100; i++){
     if ( digitalRead(MPU_INTERRUPT) == LOW )
     {
-      //imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
-      readImu();
+      readImu(IMU_REG);
       calcImu();
       euler();
       if(printDiags){
@@ -731,7 +729,6 @@ void logFileWrite()
    logFile.close();
 }
 
-
 void fileInit()
 {
    char filename[60];
@@ -761,9 +758,8 @@ void getTime(){
 }
 
 void sampleSensors(void){  
-
   ssCounter++;
-  readImu();
+  readImu(FIFO_REG);
   calcImu();
   incrementIMU();
 
@@ -772,7 +768,6 @@ void sampleSensors(void){
     readPress();   
     updateTemp();
     togglePress = 0;
-  //  SerialUSB.print("t");
   }
   
   if(ssCounter>=(int)(imuSrate/sensorSrate)){
@@ -781,7 +776,6 @@ void sampleSensors(void){
     readTemp();
     updatePress();
     togglePress = 1;
-   // SerialUSB.print("p");
 
     // RGB
     islRead(); 
@@ -789,13 +783,9 @@ void sampleSensors(void){
     incrementRGBbufpos(islGreen);
     incrementRGBbufpos(islBlue);
 
-    SerialUSB.print("l");
-
     getTime();
     incrementTimebufpos();
     checkBurn();
-
-    SerialUSB.print("b");
 
     if(led2en) digitalWrite(LED1, HIGH);
     if(led2en) digitalWrite(LED2, HIGH);
@@ -861,8 +851,6 @@ void readVoltage(){
   voltage = (float) analogRead(vSense) * vReg / (vDivider * 1024.0);
 }
 
-
-
 void getChipId() {
   volatile uint32_t val1, val2, val3, val4;
   volatile uint32_t *ptr1 = (volatile uint32_t *)0x0080A00C;
@@ -876,7 +864,8 @@ void getChipId() {
   sprintf(myID, "%8x%8x%8x%8x", val1, val2, val3, val4);
   SerialUSB.println(myID);
 }
-//This function returns the date and time for SD card file access and modify time. One needs to call in setup() to register this callback function: SdFile::dateTimeCallback(file_date_time);
+
+// Return date and time for SD card file access and modify time. One needs to call in setup() to register this callback function: SdFile::dateTimeCallback(file_date_time);
 void file_date_time(uint16_t* date, uint16_t* time) 
 {
   *date=FAT_DATE(year + 2000,month,day);
