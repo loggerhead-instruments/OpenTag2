@@ -551,8 +551,8 @@ void initSensors(){
     }
      
       cDisplay();
-      display.print("SPIN ME");
-      display.println((int) (millis() - startCalTime)/1000);
+      display.print("SPIN ME ");
+      display.println((int) spinMeTimeOut - (millis() - startCalTime)/1000);
       display.println("Magnetometer");
       display.print("Range:");
       display.print(mXrange); display.print(" ");
