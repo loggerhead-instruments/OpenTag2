@@ -503,6 +503,22 @@ void initSensors(){
   display.display();
 
   delay(displayDelay);
+
+  kmx62Init();
+  SerialUSB.println("KMX62");
+  SerialUSB.print(kmx62TestResponse());
+  for(int i=0; i<10000; i++){
+    SerialUSB.print(kmx62TestResponse());
+    delay(1);
+    readKMX62();
+    SerialUSB.print(accel_x); SerialUSB.print("\t");
+    SerialUSB.print(accel_y); SerialUSB.print("\t");
+    SerialUSB.print(accel_z); SerialUSB.print("\t");
+    SerialUSB.print(mag_x); SerialUSB.print("\t");
+    SerialUSB.print(mag_y); SerialUSB.print("\t");
+    SerialUSB.println(mag_z);
+    delay(100);
+  }
   
   mpuInit(1);
   resetGyroFIFO();
