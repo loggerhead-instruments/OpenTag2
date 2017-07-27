@@ -45,7 +45,7 @@ int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from sc
 int skipGPS = 0; // skip GPS for getting time and lat/lon
 int logGPS = 0; // if not logging, turn off GPS after get time
 long gpsTimeOutThreshold = 30 * 15; //if longer then 15 minutes at start without GPS time, just start
-int spinMeTimeOut = 60000;
+int spinMeTimeOut = 30000;
 #define HWSERIAL Serial1
 #define MS5803_30bar // Pressure sensor. Each sensor has different constants.
 //
@@ -370,15 +370,11 @@ void setup() {
 }
 
 void loop() {
-  // Waiting: check if time to start
-//  // resetWdt();
-  
-  while(mode==0){
+  while(mode==0){  // Waiting: check if time to start
     // resetWdt();
     t = rtc.getEpoch();
     getTime();
     checkBurn();
-
     // sleep if more than 10 seconds
     if(startTime - t > 10){
       //displayOff();
@@ -392,41 +388,25 @@ void loop() {
       digitalWrite(LED_RED, LOW);
       rtc.disableAlarm();
     }
-
     if(t >= startTime){
       endTime = startTime + recDur;
       startTime += recDur + recInt;  // this will be next start time for interval record
       fileInit();
       updateTemp();  // get first reading ready
       mode = 1;
-      
-      resetGyroFIFO();
       displayOff();
     }
   } // mode = 0
 
   // Recording: check if time to end
-  // int downTime = millis();
   while(mode==1){
-    // resetWdt();
     t = rtc.getEpoch();
-    int fifoBytes = getImuFifo();
-    if(fifoBytes == 512) {  // overflow
-      digitalWrite(LED_RED, HIGH); 
-      dataFile.println();  // log overflow to file
-      dataFile.println("Reset IMU");
-      resetGyroFIFO();
-    }
-    if(fifoBytes>200){
-   //   SerialUSB.println(millis() - downTime);
-      while(fifoBytes>20){
-        sampleSensors();
-        fifoBytes = getImuFifo();
-      }
-   //   downTime = millis();
-    }   
-    digitalWrite(LED_RED, LOW);
-    
+    sampleSensors(); 
+    delay(400);
+    readPress();   
+    updateTemp();
+    togglePress = 0;
+    delay(400);
     if(t>=endTime){
       dataFile.close(); // close file
       if(recInt==0){  // no interval between files
@@ -437,9 +417,6 @@ void loop() {
       }
       mode = 0;
       break;
-    }
-    else{  // don't sleep if just made a new file
-     //  LowPower.sleep(10);
     }
 
     // Check if stop button pressed
@@ -457,8 +434,7 @@ void loop() {
           display.display();
         }
         for (int k=0; k<10000; k++){
-          delay(5); // if don't power off in 60s, restart
-          // resetWdt();
+          delay(6); // if don't power off in 60s, restart
         }
         
         if(dd){
@@ -470,11 +446,10 @@ void loop() {
           displayOff();
         }
         fileInit();
-        resetGyroFIFO();
         digitalWrite(LED_RED, LOW);
-      }
-    }
-  }
+      } // stop button debounce
+    } // stop button pressed
+  }  // mode = 1
 }
 
 void alarmMatch(){
@@ -576,7 +551,8 @@ void initSensors(){
     }
      
       cDisplay();
-      display.println("SPIN ME");
+      display.print("SPIN ME");
+      display.println((int) (millis() - startCalTime)/1000);
       display.println("Magnetometer");
       display.print("Range:");
       display.print(mXrange); display.print(" ");
@@ -612,33 +588,30 @@ void initSensors(){
 
   // record file where tag is flat and motionless
   cDisplay();
-  display.println("Gyro Offset");
+  display.println("TEST");
   display.println();
-  display.println("PLACE TAG FLAT");
-  display.display();
   delay(displayDelay);
   
-  flatFileOpen();
   for(int i=1; i<1000; i++){
     readImu(SENSOR_ADDR);
     calcImu();
-    fileWriteImu(1);
+    euler();
     cDisplay();
-    display.println("DO NOT MOVE");
-    display.print(pitch); display.print(" ");
-    display.print(roll); display.print(" "); 
-    display.println(yaw);
-    display.print("A:");
-    display.print(accel_x); display.print(" ");
-    display.print(accel_y); display.print(" ");
-    display.println(accel_z);
-    display.print("G:");
-    display.print(gyro_x); display.print(" ");
-    display.print(gyro_y); display.print(" ");
-    display.println(gyro_z);
+    display.println("TEST");
+    display.print("Pitch: "); display.println(pitch);
+    display.print("Roll: "); display.println(roll); 
+    display.print("Yaw: "); display.print(yaw);
+//    display.print("A:");
+//    display.print(accel_x); display.print(" ");
+//    display.print(accel_y); display.print(" ");
+//    display.println(accel_z);
+//    display.print("G:");
+//    display.print(gyro_x); display.print(" ");
+//    display.print(gyro_y); display.print(" ");
+//    display.println(gyro_z);
     display.display(); 
+    delay(1);
   }
-  dataFile.close();
   
   // RGB
   SerialUSB.print("RGBinit: ");
@@ -801,55 +774,22 @@ void getTime(){
 }
 
 void sampleSensors(void){  
-  ssCounter++;
-  readImu(FIFO_ADDR);
+  readImu(SENSOR_ADDR);
   calcImu();
   fileWriteImu(0);
- 
-  // MS58xx start temperature conversion half-way through
-  if((ssCounter>=(0.5 * imuSrate / sensorSrate)) & togglePress){ 
-    readPress();   
-    updateTemp();
-    togglePress = 0;
+  if(led2en) {
+    digitalWrite(LED1, HIGH);
+    digitalWrite(LED2, HIGH);
   }
-  
-  if(ssCounter>=(int)(imuSrate/sensorSrate)){
-    ssCounter = 0;
-    if(led2en) {
-      digitalWrite(LED1, HIGH);
-      digitalWrite(LED2, HIGH);
-    }
-    
-    // MS58xx pressure and temperature
-    readTemp();
-    updatePress();
-    togglePress = 1;
-
-    // RGB
-    islRead(); 
-    getTime();
-    checkBurn();
-
-    calcPressTemp(); // MS58xx pressure and temperature
-    fileWriteSlowSensors();
-    
-    if(depth<1.0) {
-      digitalWrite(vhfPow, HIGH);
-      if(logGPS & (gpsStatus==0)){
-        gpsWake();
-        gpsStatus=1;
-      }
-    }
-    else{
-      if((depth>1.5)) {
-        digitalWrite(vhfPow, LOW);
-        if(logGPS & (gpsStatus==1)){
-          gpsStandby();
-          gpsStatus = 0;
-        }
-      }
-    }
-  }
+  // MS58xx pressure and temperature
+  readTemp();
+  updatePress();
+  togglePress = 1;
+  // RGB
+  islRead(); 
+  getTime();
+  calcPressTemp(); // MS58xx pressure and temperature
+  fileWriteSlowSensors();
   digitalWrite(LED1, LOW);
   digitalWrite(LED2, LOW);
   dataFile.println();
