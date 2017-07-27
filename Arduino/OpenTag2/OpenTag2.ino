@@ -190,7 +190,7 @@ long burnSeconds;
 
 void setup() {
   SerialUSB.begin(115200);
-  delay(5000);
+  delay(1000);
   SerialUSB.println("On");
   
   HWSERIAL.begin(9600);
@@ -207,14 +207,11 @@ void setup() {
   pinMode(burnWire, OUTPUT);
   digitalWrite(burnWire, LOW);
   pinMode(MPU_INTERRUPT, INPUT_PULLUP);
-  delay(5000);
 
   SerialUSB.println("pinMode setup");
 
   Wire.begin();
   Wire.setClock(400000);  // set I2C clock to 400 kHz
-
-  delay(1000);
 
   if(dd){
     SerialUSB.println("Display power on");
@@ -254,8 +251,6 @@ void setup() {
     display.println("OpenTag 2");
     display.display();
   }
-
-
 
   SerialUSB.println("GPS power on");
   if(!skipGPS) gpsOn(); // get GPS on so can get fix while init sensors
@@ -552,7 +547,7 @@ void initSensors(){
      
       cDisplay();
       display.print("SPIN ME ");
-      display.println((int) spinMeTimeOut - (millis() - startCalTime)/1000);
+      display.println((int) (spinMeTimeOut - (millis() - startCalTime))/1000);
       display.println("Magnetometer");
       display.print("Range:");
       display.print(mXrange); display.print(" ");
@@ -585,19 +580,14 @@ void initSensors(){
   display.print("Z "); display.print(magZoffset); 
   display.display();
   delay(displayDelay);
-
-  // record file where tag is flat and motionless
-  cDisplay();
-  display.println("TEST");
-  display.println();
-  delay(displayDelay);
   
   for(int i=1; i<1000; i++){
     readImu(SENSOR_ADDR);
     calcImu();
     euler();
     cDisplay();
-    display.println("TEST");
+    display.println("TEST ");
+    display.println(1000-i);
     display.print("Pitch: "); display.println(pitch);
     display.print("Roll: "); display.println(roll); 
     display.print("Yaw: "); display.print(yaw);
