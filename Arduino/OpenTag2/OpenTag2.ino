@@ -579,15 +579,16 @@ void initSensors(){
   display.print("Y "); display.println(magYoffset); 
   display.print("Z "); display.print(magZoffset); 
   display.display();
-  delay(displayDelay);
+  delay(2000);
   
-  for(int i=1; i<1000; i++){
+  startCalTime = millis();
+  while((millis() - startCalTime) < spinMeTimeOut){
     readImu(SENSOR_ADDR);
     calcImu();
     euler();
     cDisplay();
-    display.println("TEST ");
-    display.println(1000-i);
+    display.print("TEST ");
+    display.println((int) (spinMeTimeOut - (millis() - startCalTime))/1000);
     display.print("Pitch: "); display.println(pitch);
     display.print("Roll: "); display.println(roll); 
     display.print("Yaw: "); display.print(yaw);
