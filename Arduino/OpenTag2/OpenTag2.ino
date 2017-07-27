@@ -35,7 +35,7 @@
 //
 // DEV SETTINGS
 //
-float codeVer = 1.01;
+float codeVer = 1.2;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
 int displayDelay = 10000; // ms to delay so can read messages on display
@@ -397,11 +397,11 @@ void loop() {
   while(mode==1){
     t = rtc.getEpoch();
     sampleSensors(); 
-    delay(400);
+    delay(499);
     readPress();   
     updateTemp();
     togglePress = 0;
-    delay(400);
+    delay(500);
     if(t>=endTime){
       dataFile.close(); // close file
       if(recInt==0){  // no interval between files
