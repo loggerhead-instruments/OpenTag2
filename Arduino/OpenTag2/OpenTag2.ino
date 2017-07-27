@@ -763,8 +763,8 @@ void sampleSensors(void){  //interrupt at update_rate
   ssCounter++;
 
   //imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
-  readImu();
-  calcImu();
+ // readImu();
+ // calcImu();
   incrementIMU();
   digitalWrite(LED_RED, LOW);
 
