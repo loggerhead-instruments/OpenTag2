@@ -11,7 +11,7 @@ int _addr = 0x44;
 #define THRESHOLD_LH 0x05
 #define THRESHOLD_HL 0x06
 #define THRESHOLD_HH 0x07
-#define STATUS 0x08 
+#define STATUS_ISL 0x08 
 #define GREEN_L 0x09 
 #define GREEN_H 0x0A
 #define RED_L 0x0B

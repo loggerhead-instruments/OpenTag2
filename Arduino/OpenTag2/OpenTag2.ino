@@ -39,7 +39,7 @@ float codeVer = 1.01;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
 int displayDelay = 10000; // ms to delay so can read messages on display
-int recDur = 600;
+int recDur = 300;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
 int skipGPS = 0; // skip GPS for getting time and lat/lon
@@ -255,6 +255,8 @@ void setup() {
     display.display();
   }
 
+
+
   SerialUSB.println("GPS power on");
   if(!skipGPS) gpsOn(); // get GPS on so can get fix while init sensors
   initSensors();
@@ -361,12 +363,18 @@ void setup() {
   cDisplay();
   display.print("Display Off");
   display.display();
-  delay(displayDelay);
+  delay(1000);
+
+  //setupWDT(11); // initialize and activate WDT with maximum period (~500 ms)
+
 }
 
 void loop() {
   // Waiting: check if time to start
+//  // resetWdt();
+  
   while(mode==0){
+    // resetWdt();
     t = rtc.getEpoch();
     getTime();
     checkBurn();
@@ -400,6 +408,7 @@ void loop() {
   // Recording: check if time to end
   // int downTime = millis();
   while(mode==1){
+    // resetWdt();
     t = rtc.getEpoch();
     int fifoBytes = getImuFifo();
     if(fifoBytes == 512) {  // overflow
@@ -423,6 +432,7 @@ void loop() {
       if(recInt==0){  // no interval between files
         endTime += recDur;  // update end time
         fileInit();
+        resetGyroFIFO();
         break;
       }
       mode = 0;
@@ -446,12 +456,17 @@ void loop() {
           display.print("Safe to turn off");
           display.display();
         }
-        delay(58000); // if don't power off in 60s, restart
+        for (int k=0; k<10000; k++){
+          delay(5); // if don't power off in 60s, restart
+          // resetWdt();
+        }
+        
         if(dd){
           cDisplay();
           display.print("Restarting");
           display.display();
-          delay(2000);
+          // resetWdt();
+          delay(500);
           displayOff();
         }
         fileInit();
