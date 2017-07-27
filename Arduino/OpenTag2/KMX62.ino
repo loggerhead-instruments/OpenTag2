@@ -47,6 +47,7 @@ void kmx62Init(){
   Wire.write(0x3A); // CNTL2
   Wire.write(0x5F);
   Wire.endTransmission();
+  delay(5);
 }
 
 int kmx62TestResponse(){  // should return 0x55
@@ -87,16 +88,9 @@ int kmx62TestResponse(){  // should return 0x55
   // Start Getting Data from Accel
   Wire.beginTransmission(KMX62_DeviceAddress);
   Wire.write(0x0A);
-  Wire.endTransmission();
+  Wire.endTransmission(0);
   
-  //i2c_rep_start(KMX62_DeviceAddress | 1);  // Or-ed with "1" for read bit
-//    MEMS_Accel_Xout_lowByte = i2c_read(false);
-//  MEMS_Accel_Xout_highByte = i2c_read(false);
-//  MEMS_Accel_Yout_lowByte = i2c_read(false);
-//  MEMS_Accel_Yout_highByte = i2c_read(false);
-//  MEMS_Accel_Zout_lowByte = i2c_read(false);
-//  MEMS_Accel_Zout_highByte = i2c_read(true);
-  Wire.requestFrom(KMX62_DeviceAddress, 6);
+  Wire.requestFrom(KMX62_DeviceAddress, 6, 0);
   MEMS_Accel_Xout_lowByte = Wire.read();
   MEMS_Accel_Xout_highByte = Wire.read();
   MEMS_Accel_Yout_lowByte = Wire.read();
@@ -104,6 +98,7 @@ int kmx62TestResponse(){  // should return 0x55
   MEMS_Accel_Zout_lowByte = Wire.read();
   MEMS_Accel_Zout_highByte = Wire.read();
   Wire.endTransmission();
+
   
   //Note: The highbyte and low byte return a 14bit value, dropping the two LSB in the Low byte.
   //      However, because we need the signed value, we will adjust the value when converting to "g"
@@ -129,8 +124,8 @@ int kmx62TestResponse(){  // should return 0x55
 
   Wire.beginTransmission(KMX62_DeviceAddress);
   Wire.write(0x10);
-  Wire.endTransmission();
-  Wire.requestFrom(KMX62_DeviceAddress, 6);
+  Wire.endTransmission(0);
+  Wire.requestFrom(KMX62_DeviceAddress, 6, 0);
   MEMS_Mag_Xout_lowByte = Wire.read();
   MEMS_Mag_Xout_highByte = Wire.read();
   MEMS_Mag_Yout_lowByte = Wire.read();

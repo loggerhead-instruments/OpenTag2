@@ -38,7 +38,7 @@
 float codeVer = 1.01;
 int printDiags = 1;
 int dd = 1; // dd=0 to disable display
-int displayDelay = 10000; // ms to delay so can read messages on display
+int displayDelay = 1000; // ms to delay so can read messages on display
 int recDur = 300;
 int recInt = 0;
 int led2en = 1; //enable green LEDs flash 1x per second. Can be disabled from script.
@@ -506,7 +506,7 @@ void initSensors(){
 
   kmx62Init();
   SerialUSB.println("KMX62");
-  SerialUSB.print(kmx62TestResponse());
+  SerialUSB.println(kmx62TestResponse());
   for(int i=0; i<10000; i++){
     SerialUSB.print(kmx62TestResponse());
     delay(1);
