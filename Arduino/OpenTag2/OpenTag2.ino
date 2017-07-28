@@ -407,7 +407,7 @@ void loop() {
       if(recInt==0){  // no interval between files
         endTime += recDur;  // update end time
         fileInit();
-        resetGyroFIFO();
+       // resetGyroFIFO();
         break;
       }
       mode = 0;
