@@ -7,13 +7,13 @@ int pressInit()
   byte buff[2];
   int bytesread;
 
-  if (printDiags) SerialUSB.println("MS58xx Init");
+  if (printDiags) Serial.println("MS58xx Init");
   // Reset so PROM is loaded
   Wire.beginTransmission(pressAddress);
   Wire.write(0x1E);  //Reset Command
   bytesread = Wire.endTransmission();
-  if (printDiags) SerialUSB.println("Pressure Reset 0=success");
-  if (printDiags) SerialUSB.println(bytesread);  
+  if (printDiags) Serial.println("Pressure Reset 0=success");
+  if (printDiags) Serial.println(bytesread);  
     
   delay(5);  //reset needs at least 2.8 ms
   
@@ -30,7 +30,7 @@ int pressInit()
     i++;
   }
   PSENS = ((uint16_t) buff[0]<<8)| (uint16_t) buff[1]; //pressure sensitivity  MSB first
-  if (printDiags) SerialUSB.println(PSENS);
+  if (printDiags) Serial.println(PSENS);
     
   i=0;
   Wire.beginTransmission(pressAddress);
@@ -43,7 +43,7 @@ int pressInit()
     i++;
   }
   POFF = ((uint16_t) buff[0]<<8) | (uint16_t) buff[1];  //Pressure offset
-  if (printDiags) SerialUSB.println(POFF);
+  if (printDiags) Serial.println(POFF);
  
   i=0;
   Wire.beginTransmission(pressAddress);
@@ -56,7 +56,7 @@ int pressInit()
     i++;
   }
   TCSENS = ((uint16_t)  buff[0] << 8) | (uint16_t) buff[1];  //
-  if (printDiags) SerialUSB.println(TCSENS);
+  if (printDiags) Serial.println(TCSENS);
 
   i=0;
   Wire.beginTransmission(pressAddress);
@@ -70,7 +70,7 @@ int pressInit()
   }
 
   TCOFF = ((uint16_t) buff[0]<<8) | (uint16_t) buff[1];  //Temp coefficient of pressure offset
-  if (printDiags) SerialUSB.println(TCOFF);
+  if (printDiags) Serial.println(TCOFF);
   
   i=0;
   Wire.beginTransmission(pressAddress);
@@ -84,7 +84,7 @@ int pressInit()
   }
 
   TREF = ((uint16_t) buff[0]<<8) | (uint16_t) buff[1];  //Ref temperature
-  if (printDiags) SerialUSB.println(TREF);
+  if (printDiags) Serial.println(TREF);
   
   i=0;
   Wire.beginTransmission(pressAddress);
@@ -98,7 +98,7 @@ int pressInit()
   }
 
   TEMPSENS = ((uint16_t) buff[0]<<8) | (uint16_t) buff[1];  //Temperature sensitivity coefficient  
-  if (printDiags) SerialUSB.println(TEMPSENS);
+  if (printDiags) Serial.println(TEMPSENS);
 
   return (i>0);  // return 1 if value returned for calibration coefficient; otherwise 0
 }

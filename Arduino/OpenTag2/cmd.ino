@@ -35,16 +35,16 @@ int ProcCmd(char *pCmd)
     case ('T' + ('M'<<8)):
     {
          //set time
-         sscanf(&pCmd[3],"%d-%d-%d %d:%d:%d",&tyear, &tmonth, &tday, &thour, &tmin, &tsec);
-         rtc.setTime(thour, tmin, tsec);
-         rtc.setDate(tday, tmonth, tyear);
-         SerialUSB.print("Year:"); SerialUSB.println(tyear);
-         SerialUSB.print("month:"); SerialUSB.println(tmonth);
-         SerialUSB.print("day:"); SerialUSB.println(tday);
-         SerialUSB.print("hour:"); SerialUSB.println(thour);
-         SerialUSB.print("minute:"); SerialUSB.println(tmin);
-         SerialUSB.print("second:"); SerialUSB.println(tsec);
-         SerialUSB.println("Time set from script");
+         Serial.print("Time ");
+         sscanf(&pCmd[3],"%d-%d-%d %d:%d:%d",&tyear,&tmonth,&tday,&thour,&tmin,&tsec);
+         Serial.print(tyear); Serial.print(" ");
+         Serial.print(tmonth);Serial.print(" ");
+         Serial.print(tday);Serial.print(" ");
+         Serial.print(thour);Serial.print(" ");
+         Serial.print(tmin);Serial.print(" ");
+         Serial.print(tsec);
+         setTime2(thour,tmin,tsec,tday,tmonth,tyear); 
+         Serial.println(" set");
          break;
      }
 
@@ -52,23 +52,8 @@ int ProcCmd(char *pCmd)
     {
          //set time
          sscanf(&pCmd[3],"%d-%d-%d %d:%d:%d",&tyear,&tmonth,&tday,&thour,&tmin,&tsec);
-         struct tm burn;
-         burn.tm_sec = tsec;
-         burn.tm_min = tmin;
-         burn.tm_hour = thour;
-         burn.tm_mday = tday;
-         burn.tm_mon = tmonth - 1; // months since January
-         burn.tm_year = tyear + 100; // years since 1900     
-         burnTime = mktime(&burn);
+         burnTime = RTCToUNIXTime(tyear, tmonth, tday, thour, tmin, tsec);
          burnFlag = 1;
-         SerialUSB.print("Burn Time:");
-         SerialUSB.print(tyear);SerialUSB.print("-");
-         SerialUSB.print(tmonth);SerialUSB.print("-");
-         SerialUSB.print(tday);SerialUSB.print("T");
-         SerialUSB.print(thour);SerialUSB.print(":");
-         SerialUSB.print(tmin);SerialUSB.print(":");
-         SerialUSB.println(tsec);
-         SerialUSB.println(burnTime);
          break;
       }
 
@@ -77,23 +62,7 @@ int ProcCmd(char *pCmd)
       {
         //start time
          sscanf(&pCmd[3],"%d-%d-%d %d:%d:%d",&tyear,&tmonth,&tday,&thour,&tmin,&tsec);
-         struct tm start;
-         start.tm_sec = tsec;
-         start.tm_min = tmin;
-         start.tm_hour = thour;
-         start.tm_mday = tday;
-         start.tm_mon = tmonth - 1; // months since January
-         start.tm_year = tyear + 100; // years since 1900     
-         startTime = mktime(&start);
-
-         SerialUSB.print("Start Time:");
-         SerialUSB.print(tyear);SerialUSB.print("-");
-         SerialUSB.print(tmonth);SerialUSB.print("-");
-         SerialUSB.print(tday);SerialUSB.print("T");
-         SerialUSB.print(thour);SerialUSB.print(":");
-         SerialUSB.print(tmin);SerialUSB.print(":");
-         SerialUSB.println(tsec);
-         SerialUSB.println(startTime);
+         startTime = RTCToUNIXTime(tyear, tmonth, tday, thour, tmin, tsec);
          break;
       } 
       
@@ -110,8 +79,8 @@ int ProcCmd(char *pCmd)
     {
       sscanf(&pCmd[3],"%d",&lv1);
       recDur = lv1;
-      SerialUSB.print("Rec dur:");
-      SerialUSB.println(recDur);
+      Serial.print("Rec dur:");
+      Serial.println(recDur);
       break;
     }
     
@@ -119,33 +88,17 @@ int ProcCmd(char *pCmd)
     {
       sscanf(&pCmd[3],"%d",&lv1);
       recInt = lv1;
-      SerialUSB.print("Rec int:");
-      SerialUSB.println(recInt);
+      Serial.print("Rec int:");
+      Serial.println(recInt);
       break;
     } 
 
     // disable LED
     case ('L' + ('D'<<8)):
     {
-      led2en = 0;
+      LED_REDen = 0;
       break;
     }
-
-    // enable GPS for location
-    case ('G' + ('P'<<8)):
-    {
-      logGPS = 1;
-      break;
-    }
-
-    // disable GPS for time and location
-    case ('G' + ('D'<<8)):
-    {
-      skipGPS = 1;
-      break;
-    }
-
-     
   } 
   return TRUE;
 }
@@ -188,20 +141,20 @@ boolean loadScript()
       // comment out TM line if it exists
 //      if (comment_TM)
 //      {
-//        SerialUSB.print("Comment TM ");
-//        SerialUSB.println(TM_byte);
+//        Serial.print("Comment TM ");
+//        Serial.println(TM_byte);
 //        file = sd.open("setup.txt", FILE_WRITE);
 //        file.seek(TM_byte);
 //        file.print("//");
 //        file.close();
 //      }
-      
+//      
   }
   else
   {   
-    SerialUSB.println("setup.txt not opened");
+    Serial.println("setup.txt not opened");
 
-   // display.println("no setup file");
+   // // display.println("no setup file");
     return 0;
   }
  return 1;  
